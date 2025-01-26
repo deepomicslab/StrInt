@@ -29,8 +29,8 @@ def runSpaTalk(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bi
     out_f = f'{save_path}/spatalk/'
     if not tp_key:
         tp_key = adata.uns['tp_key']
-    if overwrite or not os.path.exists(f'{out_f}/lr_pair.csv'):
-        script_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/pipelines/'
+    if overwrite or not os.path.exists(f'{out_f}/spatalk_meta.csv'):
+        script_path = os.path.dirname(os.path.realpath(__file__)) + '/pipelines/'
         r_script_file = f'{script_path}/run_spatalk_lr.R'
         # TODO change name to sc_count.tsv and sc_meta.tsv
         if not st_dir:
@@ -47,6 +47,7 @@ def runSpaTalk(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bi
     else:
         # spatalk changes '-' to '_' in celltype.
         tp4spatalk = adata.obs[meta_key].str.replace('-','_')
+        tp4spatalk = adata.obs[meta_key].str.replace(' ','_')
         tp_map = dict(zip(tp4spatalk, adata.obs[tp_key]))
         adata.uns['tp_map_spatalk'] = tp_map
         df = pd.read_csv(f'{out_f}/lr_pair.csv',sep = ',',header=0,index_col=0)
@@ -54,6 +55,8 @@ def runSpaTalk(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bi
         # change from 0.005 to 0.01
         adata.uns['spatalk'] = load_spatalk(df, pvalue_thred = 0.01,tp_map = tp_map)
         adata.uns['spatalk_meta'] = pp.read_csv_tsv(f'{out_f}/spatalk_meta.csv')
+        adata.uns['spatalk_meta'].columns = [x.replace('rawmeta.','') for x in adata.uns['spatalk_meta'].columns]
+        
 
     # no need for return adata
 
@@ -62,7 +65,7 @@ def SpaVis(adata, ligand = '',receptor = '',sender = '',receiver = ''):
     save_path = adata.uns['save_path'] + '/spatalk/'
     if not os.path.exists(save_path):
         os.makedirs(save_path)     
-    script_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/pipelines/'
+    script_path = os.path.dirname(os.path.realpath(__file__)) + '/pipelines/'
     r_script_file = f'{script_path}/vis_spatalk.R'
     rscript_executable = adata.uns['rscript_path']
     args = [ligand,receptor,sender,receiver, save_path]
@@ -149,7 +152,7 @@ def runKEGG(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bin/R
     if not os.path.exists(out_f):
         os.makedirs(out_f)
         
-    script_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/pipelines/'
+    script_path = os.path.dirname(os.path.realpath(__file__)) + '/pipelines/'
     r_script_file = f'{script_path}/kegg.R'
     if input_fn:
          args = [out_f,'mouse',input_fn]
@@ -321,6 +324,42 @@ def run_GSEA(after_adata,target_col = 'CAF_leiden',sorter = ['CAF_1','CAF_0'],
         threads= 16)
     # print(res.res2d.head(10))
     return res
+
+
+
+################## SpotCor ##################
+
+def runSpotCor(adata, python_executable = None, recon_exp_file = None, recon_meta_file = None,
+               orig_sc_file = None, orig_st_file = None, species = None):
+    import subprocess
+    tp_key = adata.uns['tp_key']
+
+    save_path = adata.uns['save_path']
+    out = f'{save_path}/spot_cor/'
+    if not os.path.exists(out):
+        os.makedirs(out)
+    
+    if not species:
+        species = adata.uns['species']
+    else:
+        raise ValueError('species is not provided, please provide with parameter species')
+    script_path = os.path.dirname(os.path.realpath(__file__)) + '/pipelines/'
+    script_file = f'{script_path}/run_spot_cor.py'
+    if not 'python_path' in adata.uns and not python_executable:
+        raise ValueError('python path is not provided, please provide with parameter python_path')
+    else:
+        python_executable = adata.uns['python_path']
+        subprocess.run([python_executable, \
+        script_file, \
+        '-s', recon_exp_file, \
+        '-c', recon_meta_file, \
+        '-p', tp_key, \
+        '-o', out, \
+        '-b', orig_sc_file, \
+        '-t', orig_st_file, \
+        '-a', species])
+    df = pp.read_csv_tsv(f'{out}/spot_cor_scale.tsv')
+    return df
 
 
 # def runLeiden(adata):

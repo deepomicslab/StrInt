@@ -89,7 +89,8 @@ class strInt:
 
 
     @timeit
-    def select_cells(self, user_sc_exp = None, user_sc_agg_meta = None, p = 0.1, mean_num_per_spot = 10, mode = 'strict', max_rep = 3, repeat_penalty = 10):
+    def select_cells(self, user_sc_exp = None, user_sc_agg_meta = None, p = 0.1, mean_num_per_spot = 10, metric = 'correlation', 
+                     max_rep = 3, repeat_penalty = 10, seed = 1111):
         """
         Select cells for each spot based on the deconvolution result and the spatial expression data.
         Parameters
@@ -102,8 +103,8 @@ class strInt:
             The probability of swapping a cell.
         mean_num_per_spot : int, optional, default 10
             The mean number of cells in each spot.
-        mode : str, optional, default 'strict'
-            The mode of cell selection. 'strict' or 'relax'.
+        metric : str, optional, default 'correlation'
+            The metric for evaluation of cell selection. 'rmse' or 'correlation'.
         max_rep : int, optional, default 3  
             The maximum number of repetitions for cell selection.
         repeat_penalty : int, optional, default 10
@@ -136,8 +137,10 @@ class strInt:
                 print(f'\t mean_num_per_spot == 1; Using the idxmax celltype for each spot.')
             else:
                 print(f'\t Estimating the cell number in each spot by the deconvolution result.')	
+                self.weight = utils.check_decon_sum(self.weight)
+                # print(self.weight.head(5))
                 spot_cell_num = cell_selection.estimate_cell_number(self.st_exp, mean_num_per_spot)
-                self.num = cell_selection.randomization(self.weight,spot_cell_num)
+                self.num = cell_selection.randomization(self.weight,spot_cell_num, seed)
             # 1. subset and filter
             self.filter_st_exp, self.filter_sc_exp = pp.subset_inter(self.st_exp, self.sc_exp)
             # 2. feature selection
@@ -156,12 +159,28 @@ class strInt:
             # all lr that exp in st
             self.lr_df_align = self.lr_df[self.lr_df[0].isin(self.filter_st_exp.columns) & self.lr_df[1].isin(self.filter_st_exp.columns)].copy()
 
+            print('init normal')
             # 4. init cell selection
             self.spot_cell_dict, self.init_cor, self.picked_time = cell_selection.init_solution(self.num, self.filter_st_exp.index.tolist(),
                 self.csr_st_exp,self.csr_sc_exp,self.sc_meta[self.cell_type_key],self.trans_id_idx,self.repeat_penalty)
             self.init_sc_df = cell_selection.dict2df(self.spot_cell_dict, norm_hvg_st, norm_hvg_sc,self.sc_meta)
             result = self.init_sc_df
+            ########################################
+            # TODO debug start
+            # print('init new')
+            # result = pd.read_csv('/data6/wangjingwan/5.Simpute/4.datasets/SCC_c2l_rep50/spex/spexmod_sc_meta.tsv', sep='\t', header=0, index_col=0)
+            # # print('New',result.head(5))
+            # self.init_sc_df_strint = result
 
+            # a = pd.DataFrame(self.init_sc_df_strint.groupby('sc_id').size())
+            # b = dict(zip(a.index, a[0]))
+            # init_pick_time = self.sc_meta.copy()
+            # init_pick_time['count'] = 0
+            # init_pick_time['count'] = init_pick_time.index.map(b)
+            # init_pick_time.fillna(0, inplace=True)
+            # self.picked_time = pd.DataFrame(init_pick_time['count'])
+            # TODO debug end
+            ########################################
             # 5. reselect cells
             print('\t Swap selection start...')
             if self.p == 0:
@@ -171,7 +190,7 @@ class strInt:
                             norm_hvg_sc, self.csr_sc_exp, self.sc_meta, self.trans_id_idx,
                             self.sum_sc_agg_exp, self.sc_agg_aff_profile_df,
                             result, self.picked_time, self.lr_df_align, 
-                            p = self.p, repeat_penalty = self.repeat_penalty)
+                            p = self.p, repeat_penalty = self.repeat_penalty, metric = metric)
             else:
                 for i in range(max_rep):
                     self.sum_sc_agg_exp = cell_selection.get_sum_sc_agg(self.filter_sc_exp,result,self.filter_st_exp)
@@ -181,6 +200,26 @@ class strInt:
                                 self.sum_sc_agg_exp, self.sc_agg_aff_profile_df,
                                 result, self.picked_time, self.lr_df_align, 
                                 p = self.p, repeat_penalty = self.repeat_penalty)
+            ###############################################################################
+            ################################## original ###################################
+            # if self.p == 0:
+            #     self.sum_sc_agg_exp = cell_selection.get_sum_sc_agg(norm_hvg_sc, result, norm_hvg_st)
+            #     self.sc_agg_aff_profile_df = optimizers.cal_aff_profile(self.sum_sc_agg_exp, self.lr_df_align)
+            #     result, self.after_picked_time = cell_selection.reselect_cell(norm_hvg_st, self.spots_nn_lst, self.st_aff_profile_df, 
+            #                 norm_hvg_sc, self.csr_sc_exp, self.sc_meta, self.trans_id_idx,
+            #                 self.sum_sc_agg_exp, self.sc_agg_aff_profile_df,
+            #                 result, self.picked_time, self.lr_df_align, 
+            #                 p = self.p, repeat_penalty = self.repeat_penalty)
+            # else:
+            #     for i in range(max_rep):
+            #         self.sum_sc_agg_exp = cell_selection.get_sum_sc_agg(self.filter_sc_exp,result,self.filter_st_exp)
+            #         self.sc_agg_aff_profile_df = optimizers.cal_aff_profile(self.sum_sc_agg_exp, self.lr_df_align)
+            #         result, self.after_picked_time = cell_selection.reselect_cell(self.filter_st_exp, self.spots_nn_lst, self.st_aff_profile_df, 
+            #                     self.filter_sc_exp, self.csr_sc_exp, self.sc_meta, self.trans_id_idx,
+            #                     self.sum_sc_agg_exp, self.sc_agg_aff_profile_df,
+            #                     result, self.picked_time, self.lr_df_align, 
+            #                     p = self.p, repeat_penalty = self.repeat_penalty)
+            ###############################################################################
 
             # 6. save result
             self.alter_sc_exp = self.sc_exp.loc[result['sc_id']]
@@ -246,9 +285,11 @@ class strInt:
 
     @timeit
     def gradient_descent(self, alpha, beta, gamma, delta, eta, 
-                init_sc_embed = False,
-                iteration = 20, k = 2, W_HVG = 2,
-                left_range = 1, right_range = 2, steps = 1, dim = 2):
+                        first_term_parameter = 1,
+                        init_sc_embed = False,
+                        iteration = 20, k = 2, W_HVG = 2,
+                        left_range = 1, right_range = 2, steps = 1, dim = 2):
+        self.FIRST = first_term_parameter
         self.ALPHA = alpha
         self.BETA = beta
         self.GAMMA = gamma
@@ -281,13 +322,14 @@ class strInt:
                 self.sc_coord,_,_,_ = optimizers.aff_embedding(self.alter_sc_exp,self.st_coord,self.sc_agg_meta,self.lr_df,
                                 self.save_path,self.left_range,self.right_range,self.steps,self.dim)
             self.run_gradient()
-            gradient = self.term1_df - self.ALPHA*self.term2_df + self.BETA*self.term3_df + self.GAMMA*self.term4_df + self.DELTA*self.term5_df
+            # TODO revision test added term1 hyperparameter
+            gradient = self.FIRST*self.term1_df - self.ALPHA*self.term2_df + self.BETA*self.term3_df + self.GAMMA*self.term4_df + self.DELTA*self.term5_df
             self.alter_sc_exp = self.alter_sc_exp - self.ETA * gradient
             self.alter_sc_exp[self.alter_sc_exp<0.5] = 0
-
+            # TODO revision test added term1 hyperparameter
             # print(f'---{ite} self.loss4 {self.loss4} self.GAMMA {self.GAMMA} self.GAMMA*self.loss4 {self.GAMMA*self.loss4}')
-            loss = self.loss1 + self.ALPHA*self.loss2 + self.BETA*self.loss3 + self.GAMMA*self.loss4 + self.DELTA*self.loss5
-            tmp = pd.DataFrame(np.array([[self.loss1,self.ALPHA*self.loss2,self.BETA*self.loss3,self.GAMMA*self.loss4,self.DELTA*self.loss5,loss]]),columns = res_col, index = [ite])
+            loss = self.FIRST*self.loss1 + self.ALPHA*self.loss2 + self.BETA*self.loss3 + self.GAMMA*self.loss4 + self.DELTA*self.loss5
+            tmp = pd.DataFrame(np.array([[self.FIRST*self.loss1,self.ALPHA*self.loss2,self.BETA*self.loss3,self.GAMMA*self.loss4,self.DELTA*self.loss5,loss]]),columns = res_col, index = [ite])
             result = pd.concat((result,tmp),axis=0)
             # print(f'---In iteration {ite}, the loss is:loss1:{self.loss1:.5f},loss2:{self.loss2:.5f},loss3:{self.loss3:.5f},', end="")
             # print(f'loss4:{self.loss4:.5f},loss5:{self.loss5:.5f}.')

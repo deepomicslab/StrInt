@@ -21,7 +21,8 @@ def timeit(func):
     return wrapper
 
 
-def randomize(mat_orig):
+def randomize(mat_orig, seed = 1111):
+    np.random.seed(seed)
     [m,n] = mat_orig.shape
     mat = mat_orig.copy()
     # m - spot number
@@ -50,7 +51,7 @@ def randomize(mat_orig):
 
 
 
-def randomization(weight,spot_cell_num):
+def randomization(weight,spot_cell_num, seed = 1111):
     weight_threshold = 0.001
     if not utils.check_weight_sum_to_one(weight):
         # not sum as one
@@ -61,7 +62,7 @@ def randomization(weight,spot_cell_num):
     # num = weight * spot_cell_num
     num = pd.DataFrame(spot_cell_num.reshape(spot_cell_num.shape[0],1) * weight)
     # randomize to obtain integer cell-type number per spot
-    num = randomize(num)
+    num = randomize(num,seed)
     # num.to_csv(path + 'cell_type_num_per_spot.csv', index = True, header= True, sep = ',')
     return num
 
@@ -192,11 +193,22 @@ def init_solution(cell_type_num, spot_idx, csr_st_exp, csr_sc_exp, meta_df, tran
     return picked_index, correlations, picked_time
 
 
+def eva_metric(arr1, arr2, metric = 'correlation'):
+    # df1, df2: two array with same length
+    # return the correlation between two dataframes
+    if metric == 'correlation':
+        val = np.corrcoef(arr1, arr2)[0,1]
+    
+    if metric == 'rmse':
+        val = -1 * np.sqrt(np.mean((arr1 - arr2)**2))
+    return val
+
+
 @timeit
 def reselect_cell(st_exp, spots_nn_lst, st_aff_profile_df, 
                   sc_exp, csr_sc_exp, sc_meta, trans_id_idx,
                   sum_sc_agg_exp, sc_agg_aff_profile_df, 
-                  init_sc_df, init_picked_time, lr_df, p = 0.1,repeat_penalty = 10):
+                  init_sc_df, init_picked_time, lr_df, p = 0.1,repeat_penalty = 10, metric = 'correlation'):
     '''
     Reselect cells from sc exp data for higher exp and interface correlation
     p: weight of interface correlation
@@ -212,18 +224,14 @@ def reselect_cell(st_exp, spots_nn_lst, st_aff_profile_df,
     result = pd.DataFrame()
     picked_time = init_picked_time.copy()
     gene_num = st_exp.shape[1]
-    # TODO del after test
-    spot_i = -1
-    # 
     for spot in spot_idx_lst:
+    # for spot in ['11x49']:
         '''
         s_: spot exp of st_exp or sc_agg
         _i: indice numerical index of cell_id or spot
         '''
         ########## ST ##########
         # Transform to numerical spot id, subset from csr_matrix
-        # TODO del after test
-        spot_i += 1
         # 
         s_exp = st_exp.loc[spot]
         norm_s_exp = s_exp/np.std(s_exp)
@@ -231,7 +239,9 @@ def reselect_cell(st_exp, spots_nn_lst, st_aff_profile_df,
         s_sc_agg_sum = sum_sc_agg_exp.loc[spot]
         norm_s_sc_agg_sum = s_sc_agg_sum/np.std(s_sc_agg_sum)
         # generate baseline corr
-        max_exp_cor = np.corrcoef(norm_s_exp,norm_s_sc_agg_sum)[0][1]
+        # TODO rmse add
+        # max_exp_cor = np.corrcoef(norm_s_exp,norm_s_sc_agg_sum)[0][1]
+        max_exp_cor = eva_metric(norm_s_exp,norm_s_sc_agg_sum)
         # print(f'Baseline cor of spot {spot} is {max_exp_cor}')
         ###### Interface ########
         nn_spot = spots_nn_lst[spot]
@@ -246,26 +256,19 @@ def reselect_cell(st_exp, spots_nn_lst, st_aff_profile_df,
         spot_cell_lst = init_sc_df[init_sc_df['spot'] == spot]['sc_id'].tolist()
         # print(f'orig spot_cell_lst {spot_cell_lst}')
         if nn_spot == [] or a_cc.sum().sum() == 0 or p == 0:
-            # all neighbors are nan -> self problem
-            # cell has no LR exp
-            # only select by exp cor
-            # print(f'Cell selection for {spot} completed solely based on exp correlation. No Ligand/Receptor genes expressed')
-            # picked_time, spot_cell_lst, exp_cor = cellReplaceByExp(spot_cell_lst, sc_exp, sc_meta, tp_idx_dict,
-            #                                                         s_exp, picked_time,
-            #                                                         repeat_penalty)
-            
             picked_time, spot_cell_lst, exp_cor = expSwap_SPROUT(spot_cell_lst, csr_sc_exp, sc_meta, trans_id_idx, tp_idx_dict,
-                        s_exp, picked_time, gene_num, repeat_penalty)
+                        s_exp, picked_time, gene_num, repeat_penalty, metric = metric)
             max_aff_cor = 0
             max_mix_cor = max_exp_cor 
             mix_corr = exp_cor
             inter_cor = 0
         else:
-            max_aff_cor, max_mix_cor = cal_baseline_aff(a_ss, a_cc, max_exp_cor,p = p)
+            max_aff_cor, max_mix_cor = cal_baseline_aff(a_ss, a_cc, max_exp_cor,p = p, metric=metric)
         # for each cell in spot
             picked_time, spot_cell_lst, exp_cor, inter_cor, mix_corr = cellReplaceByBoth(spot,spot_cell_lst, sc_exp, sc_meta, tp_idx_dict, 
                                                                                         sum_sc_agg_exp,s_exp, nn_spot, a_ss, 
                                                                                         lr_df, picked_time, p, repeat_penalty)
+
         tmp = pd.DataFrame(spot_cell_lst,columns = ['sc_id'])
         tmp['spot'] = spot
         # print(tmp)
@@ -277,15 +280,15 @@ def reselect_cell(st_exp, spots_nn_lst, st_aff_profile_df,
         tmp['mix_cor_after'] = mix_corr
         result = pd.concat((result,tmp))
         new_spot_cell_dict[spot] = spot_cell_lst
-        # if spot_i == 50:
+        # if spot == '11x49':
         #     break
     result['celltype'] = sc_meta.loc[result['sc_id']]['celltype'].values
     result.index = range(len(result))
     result.index = result.index.map(str)
     correlations = result['exp_cor_after']
-    print(f'\t Swapped solution: max - {np.max(correlations):.2f}, \
-    mean - {np.mean(correlations):.2f}, \
-    min - {np.min(correlations):.2f}')
+    print(f'\t Swapped solution: max - {np.max(correlations):.4f}, \
+    mean - {np.mean(correlations):.4f}, \
+    min - {np.min(correlations):.4f}')
     return result, picked_time
 
 
@@ -352,7 +355,7 @@ def dict2df(spot_cell_dict,st_exp,sc_exp,sc_meta):
 
 
 @timeit
-def cal_baseline_aff(a_ss, a_cc, max_exp_cor, p):  
+def cal_baseline_aff(a_ss, a_cc, max_exp_cor, p, metric = 'correlation'):  
     corr = np.diag(np.corrcoef(a_ss, a_cc)[:a_ss.shape[0], a_ss.shape[0]:])
     max_aff_cor =  np.nan_to_num(corr).mean()
     max_mix_cor = max_exp_cor*(1-p) + max_aff_cor*p
@@ -391,19 +394,24 @@ def cellReplaceByBoth(spot,spot_cell_lst, sc_exp, sc_meta, tp_idx_dict, sum_sc_a
         # get candidate cells from the same type
         removed_type = sc_meta.loc[cell]['celltype']
         candi_cell_id = tp_idx_dict[removed_type]
+        # print('candi_cell_id:', candi_cell_id)
         candi_exp = sc_exp.loc[candi_cell_id]
         # calculate replaced agg for each candidates
         candi_exp_sum = candi_exp + remain_exp
         # [exp cor]
         exp_candi_cor = candi_exp_sum.T.corrwith(s_exp)
+        # print('candi_exp_sum:', candi_exp_sum)
+        # print('candi_exp_sum_sum:',candi_exp_sum.sum().sum())
+        # print('exp_candi_cor',exp_candi_cor)
         # [interface cor]
         # interface cor with the nn spot of target spot
         # (spot,nn_spot, a_ss, sum_sc_agg_exp, candi_exp_sum, lr_df)
         interface_candi_cor = cal_interface_candi_cor(spot,nn_spot, a_ss, sum_sc_agg_exp, candi_exp_sum, lr_df)
-        # print(interface_candi_cor.head(5).index)
-        # print(exp_candi_cor.head(5).index)
+        # TODO debug
+        # picked_time['prob'] = 1
         prob = half_life_prob(picked_time['count'].values,repeat_penalty)
         picked_time['prob'] = prob
+        # TODO debug
         cor_df = interface_candi_cor.loc[exp_candi_cor.index,'mean']*p + (1-p)*exp_candi_cor
         adj_cor_df = picked_time.loc[cor_df.index,'prob'] * cor_df
         max_idx = adj_cor_df.idxmax()
@@ -461,14 +469,14 @@ def cellReplaceByExp(spot_cell_lst, sc_exp, sc_meta, tp_idx_dict,
 
 def expSwap_SPROUT(spot_cell_lst, s_sc_exp, sc_meta, trans_id_idx, tp_idx_dict,
                         s_exp, after_picked_time, gene_num,
-                        repeat_penalty):
+                        repeat_penalty, metric = 'correlation'):
     '''
     s_exp: csr_matrix of spot exp
     s_sc_exp: csr_matrix of norm_sc_exp
     trans_id_idx: df of number index and cell_id 
     gene_num = len(lr_hvg_genes)
     '''
-    max_cor_rep = 0
+    max_cor_rep = -999
     max_cor = 999
     norm_Es = csr_matrix(s_exp/np.std(s_exp))
     for i in range(len(spot_cell_lst)):
@@ -487,19 +495,31 @@ def expSwap_SPROUT(spot_cell_lst, s_sc_exp, sc_meta, trans_id_idx, tp_idx_dict,
         candi_sum = candi_exp + remain_exp
         # print('candi_sum', candi_sum)
         norm_candi_sum = csr_matrix(candi_sum/np.std(candi_sum,axis = 1))
-        candi_cor_list = np.dot(norm_Es, norm_candi_sum.T)/gene_num
+        # TODO rmse add
+        # candi_cor_list = np.dot(norm_Es, norm_candi_sum.T)/gene_num
+        if metric == 'correlation':
+            candi_cor_list = np.dot(norm_Es, norm_candi_sum.T)/gene_num
+        elif metric == 'rmse':
+            candi_cor_list = csr_matrix(-1*(np.sqrt(np.mean((norm_candi_sum.toarray() - norm_Es.toarray())**2, axis=1))))
+        # print('candi_cor_list', candi_cor_list.toarray())
         ### 
         prob = half_life_prob(after_picked_time['count'].values, repeat_penalty)
         after_picked_time['prob'] = prob
         adj_cor = candi_cor_list.multiply(prob[candi_idx]).toarray()
         # print('adj_cor', adj_cor)
         candi_max_cor_idx = np.argsort(adj_cor[0])[-1:][0]
+        # print('adj_cor', adj_cor)
+        # print('candi_max_cor_idx', candi_max_cor_idx)
         swaped_idx = candi_idx[candi_max_cor_idx]
         swaped_id = candi_cell_id[candi_max_cor_idx]
         ###        
         new_agg = remain_exp + s_sc_exp[swaped_idx]
-        max_cor = np.corrcoef(new_agg, s_exp)[0][1]
-        #print(i, ":", max_cor)
+        # max_cor = np.corrcoef(new_agg, s_exp)[0][1]
+        # TODO rmse add
+        # print('new_agg', np.array(new_agg), np.array(new_agg).shape)
+        # print('s_exp', s_exp.values, s_exp.values.shape)
+        max_cor = eva_metric(np.array(new_agg), s_exp.values, metric = 'correlation')
+        # print(i, ":", max_cor)
         tmp_cell_id = spot_cell_lst.copy()
         # print(f'max_cor is {max_cor}; max_rep is {max_cor_rep}')
         if max_cor > max_cor_rep:

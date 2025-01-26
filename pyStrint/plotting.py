@@ -16,15 +16,18 @@ from matplotlib_venn import venn2
 # import math
 # from . import utils
 
-def sc_celltype(adata, color_map = None, tp_key = 'celltype', 
+def sc_celltype(adata, color_map = None, tp_key = None, 
             subset_idx = None, legend = False, figsize = (4,4), rect = False,
             savefig = False, size = 10, alpha = 0.8,title = None,theme = 'white'):
     '''
     @ Wang Jingwan 0314
     This function is used to draw scatter plot of single cell data.
     '''
+
     sc_agg_meta = adata.obs.copy()
     sc_agg_meta['pivot'] = 1
+    if tp_key is None:
+        tp_key = adata.uns['tp_key']
     #sort celltype number from large to small from sc_agg_meta
     sc_agg_meta['celltype_num'] = sc_agg_meta.groupby(tp_key)['pivot'].transform('count')
     #draw scater plot of each celltype in a order of celltype_num, large to small
@@ -38,9 +41,11 @@ def sc_celltype(adata, color_map = None, tp_key = 'celltype',
         cols = ['st_x','st_y']
     elif 'col' in sc_agg_meta.columns:
         cols = ['row','col']
+    elif 'X' in sc_agg_meta.columns:
+        cols = ['X','Y']
     else:
         cols = ['x','y']
-    
+    # print(cols)
     plt.figure(figsize=figsize)
     with sns.axes_style("white"):
         if subset_idx is None:
@@ -197,7 +202,7 @@ def sc_subtype(adata,color_map = None,tp_key = 'celltype', target_tp = None, siz
 
 
 
-def boxplot(adata, metric = 'spot_cor', palette_dict = None, sub_idx = None,
+def boxplot(adata, metric = '', palette_dict = None, sub_idx = None,
                  x = 'method', y = 'pair_num', hue='method',figsize = (2.4, 3),
                  ylabel='LRI count', dodge=False,legend = False,
                  test = 't-test_ind',rotate_x = False,
@@ -213,6 +218,8 @@ def boxplot(adata, metric = 'spot_cor', palette_dict = None, sub_idx = None,
     elif metric == 'moran':
         # draw_df = pd.DataFrame(adata.var['I'])
         draw_df = adata.uns[metric]
+    else:
+        draw_df = adata
     
     if sub_idx:
         draw_df = draw_df.loc[sub_idx]
@@ -223,7 +230,7 @@ def boxplot(adata, metric = 'spot_cor', palette_dict = None, sub_idx = None,
     ax = sns.boxplot(x=x, y=y, data=draw_df, hue=hue, 
                      dodge=dodge, palette=palette_dict,
                      width=.8)
-    pairs = [tuple(draw_df['map'].unique())]
+    pairs = [tuple(draw_df[x].unique())]
     annot = Annotator(ax, pairs, x=x, y=y, data=draw_df)
     annot.configure(test=test, comparisons_correction="BH",correction_format="replace")
     annot.apply_test()
@@ -239,16 +246,19 @@ def boxplot(adata, metric = 'spot_cor', palette_dict = None, sub_idx = None,
 
     if legend:
         # plt.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
-        leg = ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.16), ncol=2,
+        leg = ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.18), ncol=2,
                         handletextpad=0.3,columnspacing=0.3,fontsize = 14)
         leg.get_frame().set_linewidth(0.0)  # Remove legend frame
     else:
         plt.legend([],[], frameon=False)
 
     if savefig:
-        save_path = adata.uns['figpath']
-        savefig = f'{save_path}/{metric}_box.pdf'
-        plt.savefig(f'{savefig}')
+        if not isinstance(adata, pd.DataFrame):
+            save_path = adata.uns['figpath']
+            savefig = f'{save_path}/{metric}_box.pdf'
+            plt.savefig(f'{savefig}')
+        else:
+            plt.savefig(f'{savefig}')
 
 
 def exp_violin(adata, gene=None, tp_key=None, types=None,

@@ -199,6 +199,16 @@ def pear(D,D_re):
     tmp = np.corrcoef(D.flatten(order='C'), D_re.flatten(order='C'))
     return tmp[0,1] 
 
+
+def check_decon_type(weight, sc_adata, cell_type_key):
+    if len(set(weight.columns).intersection(set(sc_adata.obs[cell_type_key]))) != len(set(weight.columns)):
+        raise ValueError(
+            f'Cell type in weight matrix is different from single-cell meta file.')
+    if 'celltype' not in sc_adata.obs.columns:
+        sc_adata.obs['celltype'] = sc_adata.obs[cell_type_key]
+        print(f'celltype column not found in sc_adata.obs, added from {cell_type_key}.')
+
+
 def check_weight_sum_to_one(matrix):
     # check if the gene sum is
     check = False
@@ -208,14 +218,15 @@ def check_weight_sum_to_one(matrix):
     return check
 
 
+def check_decon_sum(weight):
+    if check_weight_sum_to_one(weight):
+        return weight
+    else:
+        print(f'Deconvolution matrix does not sum to 1, normlized.')
+        df_normalized = weight.div(weight.sum(axis=1), axis=0)
+        return df_normalized
+    
 
-def check_decon_type(weight, sc_adata, cell_type_key):
-    if len(set(weight.columns).intersection(set(sc_adata.obs[cell_type_key]))) != len(set(weight.columns)):
-        raise ValueError(
-            f'Cell type in weight matrix is different from single-cell meta file.')
-    if 'celltype' not in sc_adata.obs.columns:
-        sc_adata.obs['celltype'] = sc_adata.obs[cell_type_key]
-        print(f'celltype column not found in sc_adata.obs, added from {cell_type_key}.')
 
 
 

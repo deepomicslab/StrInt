@@ -121,6 +121,8 @@ def prep_all_adata(sc_exp = None, st_exp = None, sc_distribution = None,
     if (SP != 'Human') and (SP != 'Mouse'):
         raise ValueError(
             f'Species should be choose among either Human or Mouse.')
+    if lr_df is None:
+        lr_df = load_lr_df(species = SP)
     SUM = 1e4
     # Data Clean
     sc_exp, st_exp = data_clean(sc_exp, st_exp)
@@ -128,6 +130,8 @@ def prep_all_adata(sc_exp = None, st_exp = None, sc_distribution = None,
     sc_exp = sc_exp[genes]
     st_exp = st_exp[genes]
     sc_distribution = sc_distribution[genes]
+    # print(genes)
+    # print(lr_df)
     lr_df = lr_df[lr_df[0].isin(genes) & lr_df[1].isin(genes)]
     # Adata Preparation
     # 1. SC to adata

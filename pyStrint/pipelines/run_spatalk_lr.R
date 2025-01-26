@@ -14,9 +14,9 @@ print(args)
 if (length(args) > 6){
     n_cores = strtoi(args[7])
 }else{
-    n_cores = 4
+    n_cores = 8
 }
-# print(n_cores)
+print('Using n_cores:',n_cores)
 
 # TODO
 args <- commandArgs(trailingOnly = FALSE)
@@ -24,11 +24,6 @@ scriptPath <- normalizePath(sub("^--file=", "", args[grep("^--file=", args)]))
 scriptPath <- dirname(scriptPath)
 ##########
 dir.create(file.path(out_f), showWarnings = FALSE)
-if (file.exists(out_f)) {
-  print("The file exists")
-} else {
-  print("The file does not exist")
-}
 print(out_f)
 # print(meta_key)
 if (grepl('csv', st_dir)){
@@ -55,6 +50,8 @@ if (species == 'Mouse'){
         sc_coord = sc_coord[c('adj_spex_UMAP1','adj_spex_UMAP2')]
     }else if (grepl('before', sc_coord_dir)){
         sc_coord = sc_coord[c('adj_spex_UMAP1','adj_spex_UMAP2')]
+    }else if ('X' %in% colnames(sc_coord)){
+        sc_coord = sc_coord[c('X','Y')]
     }else{
         sc_coord = sc_coord[c('x','y')]
     }
@@ -63,8 +60,12 @@ if (species == 'Mouse'){
 if (species == 'Human'){
     if (grepl('spex', sc_coord_dir)){
         sc_coord = sc_coord[c('adj_spex_UMAP1','adj_spex_UMAP2')]
-    }else{
+    }else if (grepl('before', sc_coord_dir)){
         sc_coord = sc_coord[c('adj_spex_UMAP1','adj_spex_UMAP2')]
+    }else if (grepl('truth', sc_coord_dir)){
+        sc_coord = sc_coord[c('X','Y')]
+    }else{
+        sc_coord = sc_coord[c('x','y')]
     }
 }
 
@@ -103,6 +104,7 @@ st_data = st_data[,rownames(sc_coord)]
 # Formating
 sc_coord$cell = rownames(sc_coord)
 sc_coord$cell <- sub("^", "C",sc_coord$cell)
+sc_coord$cell = gsub("_", "-", sc_coord$cell)
 colnames(sc_coord) = c('x','y','cell')
 sc_coord = sc_coord[,c('cell','x','y')]
 
@@ -110,7 +112,8 @@ colnames(st_data) = sc_coord$cell
 colnames(st_data) = gsub("_", "-", colnames(st_data))
 rownames(st_data) = gsub("_", "-", rownames(st_data))
 st_data = as.data.frame(st_data)
-
+# print(head(sc_coord))
+# print(head(st_data))
 obj <- createSpaTalk(st_data = as.matrix(st_data),
                      st_meta = sc_coord,
                      species = species,
@@ -120,7 +123,10 @@ tp_lst = unique(obj@meta$rawmeta$celltype)
 
 
 obj <- find_lr_path(object = obj , lrpairs = lrpairs, pathways = pathways, if_doParallel = T, use_n_cores=n_cores, max_hop = max_hop)
-
+df = obj@lr_path$lrpairs
+# print(df)
+# df$chose = ifelse(grepl("true", df$receptor), "yes", "no")
+# print(df[df$chose == "yes",])
 for (tp1 in tp_lst) {
   for (tp2 in tp_lst) {
     if (tp1 != tp2) {
@@ -133,6 +139,7 @@ for (tp1 in tp_lst) {
                        co_exp_ratio = 0.05, min_pairs = 2)
         print(tp1)
         print(tp2)
+        # write.table(obj@lrpair, paste0(out_f, "/lr_pair_append.csv"), row.names = TRUE, quote = FALSE, append = TRUE, sep = ",", col.names = FALSE)
       }, error = function(e) {
         cat("Error occurred during iteration: tp1:", tp1, "tp2:", tp2, "Error:", conditionMessage(e), "\n")
       })
@@ -141,12 +148,12 @@ for (tp1 in tp_lst) {
   }
 }
 
-# obj <- dec_cci_all(object = obj, if_doParallel = T, use_n_cores=n_cores, pvalue=0.1, n_neighbor = 20, co_exp_ratio=0.05,min_pairs=2)
+## obj <- dec_cci_all(object = obj, if_doParallel = T, use_n_cores=n_cores, pvalue=0.1, n_neighbor = 20, co_exp_ratio=0.05,min_pairs=2)
 write.csv(obj@lrpair, paste0(out_f,"/lr_pair.csv"), row.names = TRUE,quote = F)
 saveRDS(obj, paste0(out_f,"/spatalk.rds"))
 ############## LR ana ###################
-# obj = readRDS('spatalk.rds')
-# out_f = './'
+# obj = readRDS(paste0(out_f,"/spatalk.rds"))
+
 r_object = obj@cellpair
 df <- data.frame(
   Name = character(),
