@@ -2,7 +2,7 @@
 The software implementation of the method in 
 [Deciphering more accurate cell-cell interactions by modeling cells and their interactions]().
 
-<img src="https://github.com/deepomicslab/StrInt/raw/main/main.jpg" alt="StrInt-Main">
+<img src="https://github.com/deepomicslab/StrInt/blob/rev/main.jpg" alt="StrInt-Main">
 
 # Pre-requirements
 * python 3.9.2
