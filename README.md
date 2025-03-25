@@ -5,12 +5,19 @@ The software implementation of the method in
 <img src="https://github.com/deepomicslab/StrInt/raw/main/main.jpg" alt="StrInt-Main">
 
 # Pre-requirements
+* python 3.9.2
 * numpy, pandas==1.5.2
 * scipy, scanpy, umap
-* loess
 * smurf-imputation
   
 # Installation
+## 1. Conda env
+```shell
+conda create --name strint python=3.9
+conda activate strint
+python -m pip install --user pyStrint
+```
+## 2. pip
 ```shell
 pip install pyStrint
 ```
