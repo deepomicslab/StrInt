@@ -1,4 +1,3 @@
-# .libPaths('D:/0.work/rlib/')
 # if (!require("BiocManager", quietly = TRUE))
 #   install.packages("BiocManager")
 
@@ -13,12 +12,13 @@ suppressPackageStartupMessages(library(clusterProfiler))
 # setwd('/data6/wangjingwan/5.Simpute/4.datasets/1.mela/spex/spa')
 # setwd('/data6/wangjingwan/5.Simpute/4.datasets/1.mela/spa/sp_kegg/')
 # setwd('/data6/wangjingwan/5.Simpute/4.datasets/BR_c2l_S1_rep50/spade/')
+
 setwd(args[1])
-if (args[2] == 'human') {
+if (args[2] == 'Human') {
   suppressPackageStartupMessages(library(org.Hs.eg.db))
   ref_db <- org.Hs.eg.db
   org = 'hsa'
-} else if (args[2] == 'mouse') {
+} else if (args[2] == 'Mouse') {
   suppressPackageStartupMessages(library(org.Mm.eg.db))
   ref_db <- org.Mm.eg.db
   org = 'mmu'

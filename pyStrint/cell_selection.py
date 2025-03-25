@@ -519,6 +519,7 @@ def expSwap_SPROUT(spot_cell_lst, s_sc_exp, sc_meta, trans_id_idx, tp_idx_dict,
         # print('new_agg', np.array(new_agg), np.array(new_agg).shape)
         # print('s_exp', s_exp.values, s_exp.values.shape)
         max_cor = eva_metric(np.array(new_agg), s_exp.values, metric = 'correlation')
+        # max_cor = eva_metric(np.array(new_agg), s_exp.values, metric = 'rmse')
         # print(i, ":", max_cor)
         tmp_cell_id = spot_cell_lst.copy()
         # print(f'max_cor is {max_cor}; max_rep is {max_cor_rep}')

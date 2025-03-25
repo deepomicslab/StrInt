@@ -14,7 +14,7 @@ print(args)
 if (length(args) > 6){
     n_cores = strtoi(args[7])
 }else{
-    n_cores = 8
+    n_cores = 16
 }
 print('Using n_cores:',n_cores)
 

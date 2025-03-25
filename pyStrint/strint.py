@@ -199,7 +199,7 @@ class strInt:
                                 self.filter_sc_exp, self.csr_sc_exp, self.sc_meta, self.trans_id_idx,
                                 self.sum_sc_agg_exp, self.sc_agg_aff_profile_df,
                                 result, self.picked_time, self.lr_df_align, 
-                                p = self.p, repeat_penalty = self.repeat_penalty)
+                                p = self.p, repeat_penalty = self.repeat_penalty, metric = metric)
             ###############################################################################
             ################################## original ###################################
             # if self.p == 0:

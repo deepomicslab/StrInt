@@ -16,7 +16,7 @@ from matplotlib_venn import venn2
 # import math
 # from . import utils
 
-def sc_celltype(adata, color_map = None, tp_key = None, 
+def sc_celltype(adata, color_map = None, tp_key = None, swap_xy = False,
             subset_idx = None, legend = False, figsize = (4,4), rect = False,
             savefig = False, size = 10, alpha = 0.8,title = None,theme = 'white'):
     '''
@@ -33,6 +33,7 @@ def sc_celltype(adata, color_map = None, tp_key = None,
     #draw scater plot of each celltype in a order of celltype_num, large to small
     sc_agg_meta = sc_agg_meta.sort_values(by=['celltype_num'],ascending=False)
     sc_agg_meta[tp_key] = sc_agg_meta[tp_key].astype(object)
+
     if 'adj_spex_UMAP1' in sc_agg_meta.columns:
         cols = ['adj_spex_UMAP1','adj_spex_UMAP2']
     elif 'adj_UMAP1' in sc_agg_meta.columns:
@@ -45,6 +46,8 @@ def sc_celltype(adata, color_map = None, tp_key = None,
         cols = ['X','Y']
     else:
         cols = ['x','y']
+    if swap_xy == True:
+        cols = [cols[1],cols[0]]
     # print(cols)
     plt.figure(figsize=figsize)
     with sns.axes_style("white"):
@@ -108,7 +111,7 @@ def sc_celltype(adata, color_map = None, tp_key = None,
         else:
             save_path = adata.uns['figpath']
             savefig = f'{save_path}/celltype_sc.pdf'
-        plt.savefig(f'{savefig}')
+        plt.savefig(f'{savefig}', bbox_inches='tight')
     plt.show()
     plt.clf()
 
@@ -662,7 +665,7 @@ def clustermap(df, index = 'ligand', col = 'receptor', value = 'lr_co_exp_num',
         clustermap.ax_heatmap.set_title(title,fontsize=18, y = 1.05) 
 
     if savefig:
-        plt.savefig(f'{savefig}')
+        plt.savefig(f'{savefig}', bbox_inches='tight')
 
     # plt.xticks(fontsize=16)
     # plt.yticks(fontsize=16)
@@ -1119,14 +1122,16 @@ def spatial_gene_exp(adata, gene = None, method = None, group = None,
 
 def LRI_of_CCI(adata_orig, sender = '',receiver = '',ligand = '', receptor = '',
                 hue = '',color_map = None,figsize = (6,3),arrow_length = 0.015, size = 30,
-                subset = True):
+                subset = True, savefig = False):
     adata = adata_orig[adata_orig.uns['spatalk_meta'].index.astype(str)]
     cellpair = adata.uns['cellpair']
     cols = ['adj_spex_UMAP1','adj_spex_UMAP2']
+    st_cols = ['st_x','st_y']
     adata.obs.index = adata.uns['spatalk_meta']['cell']
     meta = adata.obs.copy()
     # drop Categories 
     meta[hue] = meta[hue].astype(object)
+    st_spots = meta[st_cols].drop_duplicates()
     target_cellpair = cellpair[(cellpair['sender_tp'] == sender)&(cellpair['receiver_tp'] == receiver)].copy()
     
     target_cellpair[ligand] = adata[target_cellpair['cell_sender'],ligand].to_df().values
@@ -1179,6 +1184,11 @@ def LRI_of_CCI(adata_orig, sender = '',receiver = '',ligand = '', receptor = '',
     plt.xticks([],fontsize=14)
     plt.yticks([],fontsize=14)
     plt.axis('equal')
+    if savefig:
+        save_path = adata.uns['figpath']
+        savefig = f'{save_path}/{sender}_{receiver}_{ligand}_{receiver}_arrow.pdf'
+        plt.savefig(f'{savefig}', dpi=300, bbox_inches='tight')
+        print(f'Figure saved {savefig}')
     plt.show()
     #########################
     if subset:
@@ -1188,8 +1198,11 @@ def LRI_of_CCI(adata_orig, sender = '',receiver = '',ligand = '', receptor = '',
         rect_width = draw_df[cols].max()[0] - rect_x  # Width of the rectangle
         rect_height = draw_df[cols].max()[1] - rect_y  # Height of the rectangle
         rect_color = 'black'  # Rectangle color
-        sns.scatterplot(data=meta, x = cols[0], y=cols[1],hue = hue, 
-                        s = 10,alpha = 1, palette=color_map, edgecolor = None)
+        
+        sns.scatterplot(data=st_spots, x = st_cols[0], y=st_cols[1],c = ['#ccc'],
+                s = 10,alpha = 1,  edgecolor = None)
+        # sns.scatterplot(data=meta, x = cols[0], y=cols[1],hue = hue, 
+                        # s = 10,alpha = 1, palette=color_map, edgecolor = None)
         sns.scatterplot(data=draw_df, x=cols[0], y=cols[1],hue = hue, 
                         s = 10,alpha = 1,palette=color_map,edgecolor = None)
         # Draw the rectangle using Matplotlib
@@ -1203,6 +1216,11 @@ def LRI_of_CCI(adata_orig, sender = '',receiver = '',ligand = '', receptor = '',
         plt.xticks([],fontsize=14)
         plt.yticks([],fontsize=14)
         plt.axis('equal')
+        if savefig:
+            save_path = adata.uns['figpath']
+            savefig = f'{save_path}/{sender}_{receiver}_{ligand}_{receiver}_region.pdf'
+            plt.savefig(f'{savefig}', dpi=300, bbox_inches='tight')
+            print(f'Figure saved {savefig}')
         plt.show()
 
 

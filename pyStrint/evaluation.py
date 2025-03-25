@@ -6,10 +6,12 @@ from . import preprocess as pp
 
 
 def load_spatalk(result, pvalue_thred = 0.005, tp_map = None):
-    result['celltype_sender'] = result['celltype_sender'].map(tp_map)
-    result['celltype_receiver'] = result['celltype_receiver'].map(tp_map)
-
+    if tp_map:
+        result['celltype_sender'] = result['celltype_sender'].map(tp_map)
+        result['celltype_receiver'] = result['celltype_receiver'].map(tp_map)
     result = result[result['lr_co_ratio_pvalue'] < pvalue_thred].copy()
+    # print(result.head(5))
+    result[['ligand', 'receptor', 'celltype_sender', 'celltype_receiver']] = result[['ligand', 'receptor', 'celltype_sender', 'celltype_receiver']].astype(str)
     result["name"] = result[['ligand','receptor','celltype_sender','celltype_receiver']].apply("-".join, axis=1)
     # some are repeat with different score somehow
     result = result.groupby(['ligand','receptor','celltype_sender','celltype_receiver',"name"]).mean(numeric_only = True).reset_index()
@@ -26,7 +28,7 @@ def runSpaTalk(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bi
     This function is to run SpaTalk and add its results on the adata object.
     '''
     save_path = adata.uns['save_path']
-    out_f = f'{save_path}/spatalk/'
+    out_f = f'{save_path}/spa/'
     if not tp_key:
         tp_key = adata.uns['tp_key']
     if overwrite or not os.path.exists(f'{out_f}/spatalk_meta.csv'):
@@ -60,17 +62,30 @@ def runSpaTalk(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bi
 
     # no need for return adata
 
-
-def SpaVis(adata, ligand = '',receptor = '',sender = '',receiver = ''):
-    save_path = adata.uns['save_path'] + '/spatalk/'
+def SpaVis(adata, ligand = '',receptor = '',sender = '',receiver = '',
+            label_size = 10, linewidth = 2, sender_color = '', receiver_color = '',
+            exp_threshold = None, figsize = (3,6), orientation = 'horizontal'):
+    save_path = adata.uns['save_path'] + '/spa/'
     if not os.path.exists(save_path):
         os.makedirs(save_path)     
     script_path = os.path.dirname(os.path.realpath(__file__)) + '/pipelines/'
     r_script_file = f'{script_path}/vis_spatalk.R'
     rscript_executable = adata.uns['rscript_path']
-    args = [ligand,receptor,sender,receiver, save_path]
+    args = [ligand, receptor, sender, receiver, save_path, sender_color, receiver_color, str(label_size), str(linewidth), str(exp_threshold), 
+    str(figsize[0]), str(figsize[1]), orientation]
     subprocess.run([rscript_executable, "--vanilla", r_script_file]+ args)
     print(f'Plots saved in {save_path}')
+
+# def SpaVis(adata, ligand = '',receptor = '',sender = '',receiver = ''):
+#     save_path = adata.uns['save_path'] + '/spa/'
+#     if not os.path.exists(save_path):
+#         os.makedirs(save_path)     
+#     script_path = os.path.dirname(os.path.realpath(__file__)) + '/pipelines/'
+#     r_script_file = f'{script_path}/vis_spatalk.R'
+#     rscript_executable = adata.uns['rscript_path']
+#     args = [ligand,receptor,sender,receiver, save_path]
+#     subprocess.run([rscript_executable, "--vanilla", r_script_file]+ args)
+#     print(f'Plots saved in {save_path}')
 
 
 def generate_tp_lri(adata,col4Rec,sender_order,receiver_order):
@@ -113,7 +128,7 @@ def generate_tp_lri(adata,col4Rec,sender_order,receiver_order):
 
 
 def generate_cci(adata, tp_key = None, return_df = False):
-    save_path = adata.uns['save_path']+'/spatalk/'
+    save_path = adata.uns['save_path']+'/spa/'
     if not tp_key:
         tp_key = adata.uns['tp_key']
         tp_map = adata.uns['tp_map_spatalk']
@@ -146,20 +161,61 @@ def generate_cci(adata, tp_key = None, return_df = False):
         return col4Rec,row4Send
 
 
-def runKEGG(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bin/Rscript', input_fn = None):
+# def runKEGG(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bin/Rscript', input_fn = None):
+#     save_path = adata.uns['save_path']
+#     out_f = f'{save_path}/kegg/'
+#     if not os.path.exists(out_f):
+#         os.makedirs(out_f)
+        
+#     script_path = os.path.dirname(os.path.realpath(__file__)) + '/pipelines/'
+#     r_script_file = f'{script_path}/kegg.R'
+#     if input_fn:
+#          args = [out_f,'mouse',input_fn]
+#     else:
+#         # no file specified, run all kegg file under out_F
+#         args = [out_f,'mouse']
+#     subprocess.run([rscript_executable, "--vanilla", r_script_file]+ args)   
+
+
+
+def runKEGG(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bin/Rscript', input_fn = None, input_df = None, df_name = None):
+    import subprocess
     save_path = adata.uns['save_path']
     out_f = f'{save_path}/kegg/'
     if not os.path.exists(out_f):
         os.makedirs(out_f)
-        
+    species = adata.uns['species']
     script_path = os.path.dirname(os.path.realpath(__file__)) + '/pipelines/'
     r_script_file = f'{script_path}/kegg.R'
-    if input_fn:
-         args = [out_f,'mouse',input_fn]
+    if input_df is not None:
+        tmp = pp.lr2kegg(input_df, use_lig_gene = True, use_rec_gene = True).reset_index()
+        if df_name is None:
+            fn = f'{out_f}/tmp_kegg.tsv'
+            print(f'Variable input_fn have no file name specified, save to {fn}')   
+        else:
+            fn = f'{out_f}/{df_name}_kegg.tsv'
+        tmp.to_csv(fn, index = True,sep = '\t',header = True)
+        args = [out_f,species,fn]
     else:
+        if input_fn:
+            args = [out_f,species,input_fn]
+        else:
         # no file specified, run all kegg file under out_F
-        args = [out_f,'mouse']
-    subprocess.run([rscript_executable, "--vanilla", r_script_file]+ args)   
+            args = [out_f,species]
+    subprocess.run([rscript_executable, "--vanilla", r_script_file]+ args) 
+    output = fn.split('_kegg.tsv')[0]  
+    print(output)
+    kegg_res = pd.read_csv(f'{output}_kegg_enrichment.tsv',sep = '\t',header=0,index_col=0)
+    geneid = pd.read_csv(f'{output}_kegg_geneID.tsv',sep = '\t',header=0,index_col=0)
+    gene_dict = dict(zip(geneid['ENTREZID'],geneid['SYMBOL']))
+    kegg_res.index = range(len(kegg_res))
+    for index, row in kegg_res.iterrows():
+        gene_ids = row['geneID'].split('/')
+        symbols = [gene_dict[int(gene_id)] for gene_id in gene_ids]
+        new_gene_ids = '/'.join(symbols)
+        kegg_res.loc[index, 'geneSymbol'] = new_gene_ids
+    return kegg_res
+
 
 
 def lri_kegg_enrichment(adata, target_sender = [], target_receiver = [], 
