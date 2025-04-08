@@ -190,11 +190,13 @@ def runKEGG(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bin/R
     if input_df is not None:
         tmp = pp.lr2kegg(input_df, use_lig_gene = True, use_rec_gene = True).reset_index()
         if df_name is None:
-            fn = f'{out_f}/tmp_kegg.tsv'
+            # fn = f'{out_f}/tmp_kegg.tsv'
+            fn = f'tmp_kegg.tsv'
             print(f'Variable input_fn have no file name specified, save to {fn}')   
         else:
-            fn = f'{out_f}/{df_name}_kegg.tsv'
-        tmp.to_csv(fn, index = True,sep = '\t',header = True)
+            # fn = f'{out_f}/{df_name}_kegg.tsv'
+            fn = f'{df_name}_kegg.tsv'
+        tmp.to_csv(f'{out_f}/{fn}', index = True,sep = '\t',header = True)
         args = [out_f,species,fn]
     else:
         if input_fn:
@@ -205,8 +207,8 @@ def runKEGG(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bin/R
     subprocess.run([rscript_executable, "--vanilla", r_script_file]+ args) 
     output = fn.split('_kegg.tsv')[0]  
     print(output)
-    kegg_res = pd.read_csv(f'{output}_kegg_enrichment.tsv',sep = '\t',header=0,index_col=0)
-    geneid = pd.read_csv(f'{output}_kegg_geneID.tsv',sep = '\t',header=0,index_col=0)
+    kegg_res = pd.read_csv(f'{out_f}{output}_kegg_enrichment.tsv',sep = '\t',header=0,index_col=0)
+    geneid = pd.read_csv(f'{out_f}{output}_kegg_geneID.tsv',sep = '\t',header=0,index_col=0)
     gene_dict = dict(zip(geneid['ENTREZID'],geneid['SYMBOL']))
     kegg_res.index = range(len(kegg_res))
     for index, row in kegg_res.iterrows():
@@ -417,32 +419,3 @@ def runSpotCor(adata, python_executable = None, recon_exp_file = None, recon_met
     df = pp.read_csv_tsv(f'{out}/spot_cor_scale.tsv')
     return df
 
-
-# def runLeiden(adata):
-#     save_path = adata.uns['figpath']
-#     if not os.path.exists(save_path):
-#         os.makedirs(save_path)     
-#     script_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/pipelines/'
-#     script_file = f'{script_path}/run_leiden.py'
-#     python_executable = adata.uns['python_path']
-#     print(f'Plots saved in {save_path}')
-# parser.add_argument('-e', '--type-key', dest='tp_key', required=True, help='The colname of celltype in ST_meta')
-# parser.add_argument('-q', '--query-tp', dest='query_tp', required=True, help='The celltype to be analyzed')
-# parser.add_argument('-v', '--alter_exp', dest='alter_exp', required=True, help='ST')
-# parser.add_argument('-p', '--agg_meta', dest='agg_meta', required=True, help='ST meta')
-
-# parser.add_argument('-a', '--species', dest='species', required=True, default='human',help='If the species is human, default human')
-# parser.add_argument('-n', '--name', dest='name', required=False, help='Sample name which will be set as the prefix of output.SCC_ or SCC/')
-# parser.add_argument('-o', '--out-dir', dest='out_dir', required=False, help='Output file path')
-# args = parser.parse_args()
-# tp_key = adata.uns['tp_key']
-#     subprocess.run([python_executable, \
-#     script_file, \
-#     '-e', tp_key, \
-#     '-v', st, \
-#     '-p', st_coord, \
-#     '-a', name, \
-#     '-o', tp_key, \
-#     '-n', out, \
-#     '-q', orig_sc_file
-#     ])

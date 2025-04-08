@@ -199,7 +199,7 @@ def sc_subtype(adata,color_map = None,tp_key = 'celltype', target_tp = None, siz
     if savefig:
         save_path = adata.uns['figpath']
         savefig = f'{save_path}/{name}_sc_solo.pdf'
-        plt.savefig(f'{savefig}')
+        plt.savefig(f'{savefig}', bbox_inches='tight')
     plt.show()
     plt.clf()
 
@@ -259,9 +259,9 @@ def boxplot(adata, metric = '', palette_dict = None, sub_idx = None,
         if not isinstance(adata, pd.DataFrame):
             save_path = adata.uns['figpath']
             savefig = f'{save_path}/{metric}_box.pdf'
-            plt.savefig(f'{savefig}')
+            plt.savefig(f'{savefig}', bbox_inches='tight')
         else:
-            plt.savefig(f'{savefig}')
+            plt.savefig(f'{savefig}', bbox_inches='tight')
 
 
 def exp_violin(adata, gene=None, tp_key=None, types=None,
@@ -311,7 +311,7 @@ def exp_violin(adata, gene=None, tp_key=None, types=None,
     if savefig:
         save_path = adata.uns['figpath']
         savefig = f'{save_path}/{title}_exp_violin.pdf'
-        plt.savefig(f'{savefig}')
+        plt.savefig(f'{savefig}', bbox_inches='tight')
 
 
 
@@ -443,7 +443,7 @@ def draw_bubble(draw_df, x=None, y="Description", x_highlight = None, y_highligh
         # elif len(draw_df[x].unique()) == 3:
         #     plt.xlim(-0.5, 2.5)
         if savefig:
-            plt.savefig(f'{savefig}')
+            plt.savefig(f'{savefig}', bbox_inches='tight')
         plt.show()
         plt.clf()
 
@@ -535,7 +535,7 @@ def old_draw_bubble(draw_df, x=None, y="Description", x_highlight = None, y_high
         # elif len(draw_df[x].unique()) == 3:
         #     plt.xlim(-0.5, 2.5)
         if savefig:
-            plt.savefig(f'{savefig}')
+            plt.savefig(f'{savefig}', bbox_inches='tight')
         plt.show()
         plt.clf()
 
@@ -1192,7 +1192,7 @@ def LRI_of_CCI(adata_orig, sender = '',receiver = '',ligand = '', receptor = '',
     plt.show()
     #########################
     if subset:
-        plt.figure(figsize=figsize)
+        plt.figure(figsize=(4,3.2))
         rect_x,rect_y = draw_df[cols].min() # X-coordinate of the bottom-left corner
         rect_y = draw_df[cols].min()[1]  # Y-coordinate of the bottom-left corner
         rect_width = draw_df[cols].max()[0] - rect_x  # Width of the rectangle
@@ -1203,7 +1203,7 @@ def LRI_of_CCI(adata_orig, sender = '',receiver = '',ligand = '', receptor = '',
                 s = 10,alpha = 1,  edgecolor = None)
         # sns.scatterplot(data=meta, x = cols[0], y=cols[1],hue = hue, 
                         # s = 10,alpha = 1, palette=color_map, edgecolor = None)
-        sns.scatterplot(data=draw_df, x=cols[0], y=cols[1],hue = hue, 
+        sns.scatterplot(data=celltype_df, x=cols[0], y=cols[1],hue = hue, 
                         s = 10,alpha = 1,palette=color_map,edgecolor = None)
         # Draw the rectangle using Matplotlib
         rectangle = plt.Rectangle((rect_x, rect_y), rect_width, rect_height, fill=False, color=rect_color)
@@ -1265,7 +1265,7 @@ def patterns(adata, savefig = False, cmap = None, COL = None):
         else:
             save_path = adata.uns['figpath']
             savefig = f'{save_path}/patterns.pdf'
-        plt.savefig(f'{savefig}')
+        plt.savefig(f'{savefig}', dpi=300, bbox_inches='tight')
 
 
 def celltype_pie(adata, meta, target = None, thred = 5, cmap = None, title = None, savefig = False):

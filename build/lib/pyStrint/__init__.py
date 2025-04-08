@@ -1,5 +1,5 @@
-"""Top-level package for SpexMod."""
+"""Top-level package for StrInt."""
 
 __author__ = """WANG Jingwan"""
-__email__ = 'wangjingwan9684@gmail.com'
-__version__ = '0.7.0'
+__email__ = 'wanwang6-c@my.cityu.edu.hk'
+__version__ = '0.0.21'

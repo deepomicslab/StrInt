@@ -16,6 +16,8 @@ setup.py
 ./pyStrint/pipelines/sankey.R
 ./pyStrint/pipelines/spatialDE.py
 ./pyStrint/pipelines/vis_spatalk.R
+dist/pyStrint-0.0.20-py3-none-any.whl
+dist/pyStrint-0.0.20.tar.gz
 pyStrint/__init__.py
 pyStrint/cell_selection.py
 pyStrint/evaluation.py

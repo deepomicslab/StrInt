@@ -89,8 +89,8 @@ class strInt:
 
 
     @timeit
-    def select_cells(self, user_sc_exp = None, user_sc_agg_meta = None, p = 0.1, mean_num_per_spot = 10, metric = 'correlation', 
-                     max_rep = 3, repeat_penalty = 10, seed = 1111):
+    def select_cells(self, user_sc_exp = None, user_sc_agg_meta = None, p = 0, mean_num_per_spot = 10, metric = 'correlation', 
+                     max_rep = 1, repeat_penalty = 10, seed = 1111):
         """
         Select cells for each spot based on the deconvolution result and the spatial expression data.
         Parameters
@@ -158,8 +158,6 @@ class strInt:
             self.csr_sc_exp = csr_matrix(norm_hvg_sc)
             # all lr that exp in st
             self.lr_df_align = self.lr_df[self.lr_df[0].isin(self.filter_st_exp.columns) & self.lr_df[1].isin(self.filter_st_exp.columns)].copy()
-
-            print('init normal')
             # 4. init cell selection
             self.spot_cell_dict, self.init_cor, self.picked_time = cell_selection.init_solution(self.num, self.filter_st_exp.index.tolist(),
                 self.csr_st_exp,self.csr_sc_exp,self.sc_meta[self.cell_type_key],self.trans_id_idx,self.repeat_penalty)
@@ -284,19 +282,20 @@ class strInt:
 
 
     @timeit
-    def gradient_descent(self, alpha, beta, gamma, delta, eta, 
-                        first_term_parameter = 1,
+    def gradient_descent(self, p1 = 0.05, p2 = 0.65, p3 = 0.2, p4 = 0.1, 
+                         delta = 0.1, eta = 0.0005, 
                         init_sc_embed = False,
                         iteration = 20, k = 2, W_HVG = 2,
                         left_range = 1, right_range = 2, steps = 1, dim = 2):
-        self.FIRST = first_term_parameter
-        self.ALPHA = alpha
-        self.BETA = beta
-        self.GAMMA = gamma
-        self.DELTA = delta
+        self.GAMMA = p1 # interface
+        self.FIRST = p2 # st_exp
+        self.ALPHA = p3 # sc_ref
+        self.BETA = p4 # affinity embedding
+        
+        self.DELTA = delta # L2
         self.ETA = eta
 
-        self.init_sc_embed = init_sc_embed
+        self.init_sc_embed = init_sc_embed # initial cell coordinates
         self.iteration = iteration
         self.K = k
         self.W_HVG = W_HVG
@@ -329,16 +328,12 @@ class strInt:
             # TODO revision test added term1 hyperparameter
             # print(f'---{ite} self.loss4 {self.loss4} self.GAMMA {self.GAMMA} self.GAMMA*self.loss4 {self.GAMMA*self.loss4}')
             loss = self.FIRST*self.loss1 + self.ALPHA*self.loss2 + self.BETA*self.loss3 + self.GAMMA*self.loss4 + self.DELTA*self.loss5
-            tmp = pd.DataFrame(np.array([[self.FIRST*self.loss1,self.ALPHA*self.loss2,self.BETA*self.loss3,self.GAMMA*self.loss4,self.DELTA*self.loss5,loss]]),columns = res_col, index = [ite])
+            tmp = pd.DataFrame(np.array([[self.GAMMA*self.loss4,self.FIRST*self.loss1,self.ALPHA*self.loss2,self.BETA*self.loss3,self.DELTA*self.loss5,loss]]),columns = res_col, index = [ite])
             result = pd.concat((result,tmp),axis=0)
-            # print(f'---In iteration {ite}, the loss is:loss1:{self.loss1:.5f},loss2:{self.loss2:.5f},loss3:{self.loss3:.5f},', end="")
-            # print(f'loss4:{self.loss4:.5f},loss5:{self.loss5:.5f}.')
-            # print(f'---In iteration {ite}, the loss is:loss1:{self.loss1:.5f},loss2:{self.ALPHA*self.loss2:.5f},loss3:{self.BETA*self.loss3:.5f},', end="")
-            # print(f'loss4:{self.GAMMA*self.loss4:.5f},loss5:{self.DELTA*self.loss5:.5f}.')
             print(f'The total loss after iteration {ite} is {loss:.5f}.')
 
         self.alter_sc_exp[self.alter_sc_exp < 1] = 0  
-        self.alter_sc_exp.to_csv(f'{self.save_path}/alter_sc_exp.tsv',sep = '\t',header=True,index=True)
+        self.alter_sc_exp.to_csv(f'{self.save_path}/refined_sc_exp.tsv',sep = '\t',header=True,index=True)
         result.to_csv(f'{self.save_path}/loss.tsv',sep = '\t',header=True,index=True)
         self.result = result
         if self.st_tp != 'slide-seq':

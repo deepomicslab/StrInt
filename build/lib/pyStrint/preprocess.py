@@ -231,3 +231,63 @@ def filter_kegg(df, pval_thred = 0.05):
 
 
 
+def auto_tune_parameters(ST_SC, LR):
+    """
+    Description:
+        Adjusts and calculates four parameters (p1, p2, p3, p4) based on two input values: 
+        ST_SC (scaling factor for p2 and p3) and LR (scaling factor for p1 and p4). 
+        The calculations are constrained by baseline values, ratios, and maximum/minimum bounds.
+
+    Input:
+        ST_SC: Expected cell number divided by the cell number of scRNA-seq reference.
+                More cell in the reference, add weight on p3.
+        LR: The scaling factor for p1 and p4.
+
+    Output:
+        p1: A fraction (1/3) of the calculated p14.
+        p2: A value adjusted based on ST_SC and constrained by minimum and maximum boundaries.
+        p3: The remaining value after subtracting p14 and p2 from 1.
+        p4: A fraction (2/3) of the calculated p14.
+    """
+    import numpy as np
+
+    # --- Define baseline values and constraints ---
+    baseline_p14 = 0.15        # Baseline value for p1 and p4
+    baseline_lr = 0.5          # Baseline value for learning rate (LR)
+    target_p14_max = 0.15      # Maximum allowable value for p1 and p4
+
+    # --- Calculate p1 and p4 based on LR ---
+    # Scale p14 using the ratio of baseline_p14 to baseline_lr
+    scale_p14 = baseline_p14 / baseline_lr
+    p14 = min(scale_p14 * LR, target_p14_max)  # Ensure p14 does not exceed the target maximum value
+
+    # --- Split p14 into p1 and p4 ---
+    # p1 is 1/3 of p14, and p4 is 2/3 of p14
+    p1 = p14 * (1 / 3)
+    p4 = p14 * (2 / 3)
+
+    # --- Calculate the remaining value after assigning p14 ---
+    remaining = 1 - p14
+
+    # --- Define baseline values and constraints for ST_SC and p2 ---
+    baseline_ST_SC = 1         # Baseline value for ST_SC
+    baseline_p2 = 0.65         # Baseline value for p2
+    min_p2 = 0.65              # Minimum allowable value for p2
+
+    # --- Define constraints for p2 ---
+    # p3 must be at least 0.15, or p2 and p3 must maintain a 1:4 ratio
+    max_p2 = min(0.8 * remaining, remaining - 0.15)
+
+    # --- Compute the unbounded new value for p2 based on the scaling factor ---
+    # Scale p2 using the ratio of baseline_p2 to baseline_ST_SC, adjusted by ST_SC
+    new_p2_unbounded = (baseline_p2 / baseline_ST_SC) * ST_SC
+
+    # Ensure p2 does not exceed the maximum allowable value and meets the minimum requirements
+    new_p2_unbounded = min(max_p2, new_p2_unbounded)
+    p2 = max(new_p2_unbounded, min_p2)
+
+    # --- Assign the remaining value to p3 ---
+    p3 = remaining - p2
+
+    # --- Return the calculated parameter values ---
+    return np.round(p1,2), np.round(p2,2), np.round(p3,2), np.round(p4,2)

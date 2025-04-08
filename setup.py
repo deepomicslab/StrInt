@@ -2,7 +2,7 @@ from setuptools import setup
 from setuptools import find_packages
 
 setup( name = 'pyStrint',
-version = '0.0.20',
+version = '0.0.21',
 description='Deciphering more accurate cell-cell interactions by modeling cells and their interactions',
 url='https://github.com/deepomicslab/StrInt',
 author='Jingwan WANG',
