@@ -2,7 +2,7 @@ from setuptools import setup
 from setuptools import find_packages
 
 setup( name = 'pyStrint',
-version = '0.0.13',
+version = '0.0.20',
 description='Deciphering more accurate cell-cell interactions by modeling cells and their interactions',
 url='https://github.com/deepomicslab/StrInt',
 author='Jingwan WANG',
@@ -18,6 +18,6 @@ install_requires = [
     'scanpy==1.9.8',
     'smurf-imputation'
 ],
-package_data={'LR': ['*.txt'],'pipelines':['*']},
+package_data={'LR': ['*.txt'],'pipelines':['*'],'lib':['*']},
 include_package_data=True
 )
