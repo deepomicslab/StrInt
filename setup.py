@@ -16,7 +16,8 @@ install_requires = [
     'pandas==1.5.2',
     'scipy==1.9.3',
     'scanpy==1.9.8',
-    'smurf-imputation'
+    'smurf-imputation',
+    'seaborn==0.11.0',
 ],
 package_data={'LR': ['*.txt'],'pipelines':['*'],'lib':['*']},
 include_package_data=True

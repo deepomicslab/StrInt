@@ -952,7 +952,7 @@ def draw_lr_flow2(df, left_panel = 'ligand', right_panel = 'receptor',
 
 
 def draw_lr_flow3(df, left_panel = 'ligand', mid_panel = 'receptor', right_panel = 'pathway',
-                 figsize = (10,10)):
+                 figsize = (10,10), outDir = None):
     import plotly.graph_objects as go
     ligs = list(df[left_panel].unique())
     recs = list(df[mid_panel].unique())
@@ -963,23 +963,23 @@ def draw_lr_flow3(df, left_panel = 'ligand', mid_panel = 'receptor', right_panel
     label_path = list(df[right_panel].unique())
     labels.extend(label_rec)
     labels.extend(label_path)
-    print('label',labels)
+    # print('label',labels)
     label_num_map = dict(zip(labels,range(len(labels))))
     source1 = list(df[left_panel].map(label_num_map))
     target1 = list(df[mid_panel].map(label_num_map))
     target2 = list(df[right_panel].map(label_num_map))
     source = source1 + target1
     target = target1 + target2
-    print('source1',source1)
-    print('target1',target1)
-    print('target2',target2)
-    print([0.1]*len(ligs) + [0.2]*len(recs) + [10]*len(paths))
+    # print('source1',source1)
+    # print('target1',target1)
+    # print('target2',target2)
+    # print([0.1]*len(ligs) + [0.2]*len(recs) + [10]*len(paths))
     value = [np.random.randint(1, 2) for _ in range((len(source)))]
     trace = go.Sankey(
         node=dict(
             pad=5,
             thickness=20,
-            line=dict(color='black', width=0.1),
+            line=dict(color='gray', width=0.1),
             label=labels,
             color=["#F56867"]*len(ligs) + ["#3A84E6"]*len(recs) + ["#59BE86"] *len(paths),
             x = [0.1]*len(ligs) + [0.3]*len(recs) + [0.9]*len(paths),
@@ -990,23 +990,23 @@ def draw_lr_flow3(df, left_panel = 'ligand', mid_panel = 'receptor', right_panel
             source=source, # indices correspond to labels, eg A1, A2, A1, B1 
             target=target, 
             value=value,
+            color = '#e7e7e7'
         )
     )
     # create layout
     layout = go.Layout(
         title='',
-        font=dict(size=18)
+        font=dict(size=24,color='black'),
     )
     # create figure
     fig = go.Figure(data=[trace], layout=layout)
-    print(fig.data[0]['node']['x'])
-    print(fig.data[0]['node']['y'])
+    # print(fig.data[0]['node']['x'])
+    # print(fig.data[0]['node']['y'])
     width = figsize[0]*100
     height = figsize[1]*100
     fig.update_layout(width=width, height=height)
-    # fig.write_image(f'./8.Ref/figures/main/lr_network.pdf') 
+    fig.write_image(f'{outDir}')
     fig.show()
-
 
 
 def spatial_gene_exp(adata, gene = None, method = None, group = None,
@@ -1122,7 +1122,8 @@ def spatial_gene_exp(adata, gene = None, method = None, group = None,
 
 def LRI_of_CCI(adata_orig, sender = '',receiver = '',ligand = '', receptor = '',
                 hue = '',color_map = None,figsize = (6,3),arrow_length = 0.015, size = 30,
-                subset = True, savefig = False):
+                cols = ['adj_spex_UMAP1','adj_spex_UMAP2'], legend = True, show_pair = False,
+                title = None, subset = True, savefig = None):
     adata = adata_orig[adata_orig.uns['spatalk_meta'].index.astype(str)]
     cellpair = adata.uns['cellpair']
     cols = ['adj_spex_UMAP1','adj_spex_UMAP2']
@@ -1133,7 +1134,7 @@ def LRI_of_CCI(adata_orig, sender = '',receiver = '',ligand = '', receptor = '',
     meta[hue] = meta[hue].astype(object)
     st_spots = meta[st_cols].drop_duplicates()
     target_cellpair = cellpair[(cellpair['sender_tp'] == sender)&(cellpair['receiver_tp'] == receiver)].copy()
-    
+    # print(target_cellpair)
     target_cellpair[ligand] = adata[target_cellpair['cell_sender'],ligand].to_df().values
     target_cellpair[receptor] = adata[target_cellpair['cell_receiver'],receptor].to_df().values
     # print(target_cellpair.head(5))
@@ -1147,7 +1148,14 @@ def LRI_of_CCI(adata_orig, sender = '',receiver = '',ligand = '', receptor = '',
     # print(draw_bg[hue].unique())
     celltype_df = draw_bg[draw_bg[hue].isin([sender,receiver])].copy()
     # print(celltype_df[hue].unique())
-    target_cellpair_arrow = target_cellpair[(target_cellpair[ligand] >0)&(target_cellpair[receptor] >0)].copy()
+    if show_pair:
+        # only show the pair of cells that detected by spatalk
+        target_cellpair_arrow = target_cellpair.copy()
+        cellpairs = len(target_cellpair)
+        title = f'{sender} - {receiver} Cell pairs: {cellpairs}'
+    else:
+        target_cellpair_arrow = target_cellpair[(target_cellpair[ligand] >0)&(target_cellpair[receptor] >0)].copy()
+        # print(target_cellpair_arrow)
     plt.figure(figsize=figsize)
     sns.scatterplot(data = draw_bg, x = cols[0], y=cols[1], 
                     s = 10, alpha = 0.4,c=['#ccc'],edgecolor = None)
@@ -1169,16 +1177,22 @@ def LRI_of_CCI(adata_orig, sender = '',receiver = '',ligand = '', receptor = '',
           head_starts_at_zero=False)
   
     # plt.legend([],[], frameon=Fase)
-    if figsize[0] > figsize[1]:
-        # landscape
-        plt.title(f'{sender}: {ligand} to {receiver}: {receptor}',fontsize=16)
+    if not title:
+        if figsize[0] > figsize[1]:
+            # landscape
+            plt.title(f'{sender}: {ligand} to {receiver}: {receptor}',fontsize=16)
+        else:
+            # portrait
+            plt.title(f'{sender}: {ligand} to \n {receiver}: {receptor}',fontsize=16)
     else:
-        # portrait
-        plt.title(f'{sender}: {ligand} to \n {receiver}: {receptor}',fontsize=16)
-    leg = plt.legend(loc='center left', bbox_to_anchor=(0.99, 0.5),
-                             ncol=1, handletextpad=0.5,columnspacing=0.4,labelspacing=0.5,
-                             fontsize = 16,markerscale = 2,handlelength = 0.5)
-    leg.get_frame().set_linewidth(0.0)  # Remove legend frame
+        plt.title(title,fontsize=16)
+    if legend:
+        leg = plt.legend(loc='center left', bbox_to_anchor=(0.99, 0.5),
+                                ncol=1, handletextpad=0.5,columnspacing=0.4,labelspacing=0.5,
+                                fontsize = 16,markerscale = 2,handlelength = 0.5)
+        leg.get_frame().set_linewidth(0.0)  # Remove legend frame
+    else:
+        plt.legend([],[], frameon=False)
     plt.xlabel('',fontsize=16)
     plt.ylabel('',fontsize=16)
     plt.xticks([],fontsize=14)

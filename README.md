@@ -7,6 +7,7 @@ The software implementation of the method in
 # Pre-requirements
 * python 3.9.2
 * numpy, pandas==1.5.2
+* seaborn==0.11.0
 * scipy, scanpy, umap
 * smurf-imputation
   
