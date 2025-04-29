@@ -28,6 +28,9 @@ def sc_celltype(adata, color_map = None, tp_key = None, swap_xy = False,
     sc_agg_meta['pivot'] = 1
     if tp_key is None:
         tp_key = adata.uns['tp_key']
+    if color_map is None:
+        if 'major_color_map' in adata.uns.keys():
+            color_map = adata.uns['major_color_map']
     #sort celltype number from large to small from sc_agg_meta
     sc_agg_meta['celltype_num'] = sc_agg_meta.groupby(tp_key)['pivot'].transform('count')
     #draw scater plot of each celltype in a order of celltype_num, large to small

@@ -270,15 +270,17 @@ class strInt:
             self.sc_coord = utils.check_sc_coord(self.init_sc_embed)
             print('Using user provided init sc_coord.')
         else:
-            print('Init sc_coord by affinity embedding...')
-            self.sc_coord,_,_,_ = optimizers.aff_embedding(self.alter_sc_exp,self.st_coord,self.sc_agg_meta,self.lr_df,
+            print('Initialize cell coordinates by affinity embedding...')
+            self.sc_coord,max_shape,_,_,_ = optimizers.aff_embedding(self.alter_sc_exp,self.st_coord,self.sc_agg_meta,self.lr_df,
                             self.save_path,self.left_range,self.right_range,self.steps,self.dim,verbose = False)
+            print(f"Initial shape correlation: {max_shape:.2f}")
+            # print(f"{'='*50}\n")
         self.run_gradient()
         # v5 calculte the initial loss of each term to balance their force.
         adj2,adj3,adj4,adj5 = optimizers.loss_adj(self.loss1,self.loss2,self.loss3,self.loss4,self.loss5)
         self.ALPHA,self.BETA,self.GAMMA,self.DELTA = self.ALPHA*adj2,self.BETA*adj3,self.GAMMA*adj4,self.DELTA*adj5
         self.sc_agg_meta[['UMAP1','UMAP2']] = self.sc_coord
-        print('Hyperparameters adjusted.')
+        # print('Hyperparameters adjusted.')
 
 
     @timeit
@@ -316,9 +318,9 @@ class strInt:
         self.init_grad()
         ######### init done ############
         for ite in range(self.iteration):
-            print(f'-----Start iteration {ite} -----')
+            # print(f'-----Start iteration {ite} -----')
             if self.st_tp != 'slide-seq':
-                self.sc_coord,_,_,_ = optimizers.aff_embedding(self.alter_sc_exp,self.st_coord,self.sc_agg_meta,self.lr_df,
+                self.sc_coord,max_shape,_,_,_ = optimizers.aff_embedding(self.alter_sc_exp,self.st_coord,self.sc_agg_meta,self.lr_df,
                                 self.save_path,self.left_range,self.right_range,self.steps,self.dim)
             self.run_gradient()
             # TODO revision test added term1 hyperparameter
@@ -330,18 +332,27 @@ class strInt:
             loss = self.FIRST*self.loss1 + self.ALPHA*self.loss2 + self.BETA*self.loss3 + self.GAMMA*self.loss4 + self.DELTA*self.loss5
             tmp = pd.DataFrame(np.array([[self.GAMMA*self.loss4,self.FIRST*self.loss1,self.ALPHA*self.loss2,self.BETA*self.loss3,self.DELTA*self.loss5,loss]]),columns = res_col, index = [ite])
             result = pd.concat((result,tmp),axis=0)
-            print(f'The total loss after iteration {ite} is {loss:.5f}.')
+            if ite == 0:
+                print(f"Initial loss: {loss:.5f}")
+            # print(f"{'='*40}")
+            # print(f"Iteration {ite}...")
+            # print(f"Shape Correlation: {max_shape:.4f}")
+            # print(f"Total Loss:{loss:.5f}")
 
         self.alter_sc_exp[self.alter_sc_exp < 1] = 0  
         self.alter_sc_exp.to_csv(f'{self.save_path}/refined_sc_exp.tsv',sep = '\t',header=True,index=True)
         result.to_csv(f'{self.save_path}/loss.tsv',sep = '\t',header=True,index=True)
         self.result = result
         if self.st_tp != 'slide-seq':
-            self.sc_coord,_,_,_ = optimizers.aff_embedding(self.alter_sc_exp,self.st_coord,self.sc_agg_meta,self.lr_df,
+            self.sc_coord,max_shape,_,_,_ = optimizers.aff_embedding(self.alter_sc_exp,self.st_coord,self.sc_agg_meta,self.lr_df,
                                 self.save_path,self.left_range,self.right_range,self.steps,self.dim)
             _, sc_spot_center = optimizers.sc_prep(self.st_coord, self.sc_agg_meta)
             self.sc_agg_meta[['st_x','st_y']] = sc_spot_center
             self.sc_agg_meta = optimizers.center_shift_embedding(self.sc_coord, self.sc_agg_meta, max_dist = 1)
+            print(f"{'='*40}")
+            print(f"Final Loss:{loss:.5f}")
+            print(f"Final shape correlation: {max_shape:.2f}")
+            
         else:
             # v10
             self.sc_agg_meta[['st_x','st_y']] = self.sc_coord
