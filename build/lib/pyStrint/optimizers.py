@@ -571,7 +571,7 @@ def coord_eva(coord, ans, chunk_size = 12):
         cor = pear(ans[process_i], chunk)
         # print(cor)
         cor_all += cor
-    print(f'Avearge shape correlation is: {cor_all/chunk_size}')
+    # print(f'Avearge shape correlation is: {cor_all/chunk_size}')
     return cor_all/chunk_size
 
 
@@ -598,7 +598,7 @@ def embedding(sparse_A, ans, path, left_range = 0, right_range = 30, steps = 30,
                     max_shape = cor
                     best_in_shape = coord
         pd.DataFrame(best_in_shape).to_csv(path + 'coord_best.csv',index = False, header= False, sep = ',')
-        print(f'max shape cor is {max_shape}')
+        # print(f'max shape cor is {max_shape}')
     else:
     # only output the best reconstructed result
         for i in range(int(left_range),int(right_range)):
@@ -609,7 +609,7 @@ def embedding(sparse_A, ans, path, left_range = 0, right_range = 30, steps = 30,
                     max_shape = cor
                     best_in_shape = coord
     #print('Reached a correlation in shape at:', max_shape)
-    return best_in_shape
+    return best_in_shape, max_shape
 
 
 # @timeit
@@ -660,9 +660,9 @@ def aff_embedding(alter_sc_exp,st_coord,sc_meta,lr_df,save_path, left_range = 1,
     np.fill_diagonal(sparse_A,1)
     #########################print(f'End affinity calculation.')
     #print(f'Start embedding...')
-    coord = embedding(sparse_A, ans, save_path, left_range, right_range, steps, dim, verbose = verbose)
+    coord, max_shape = embedding(sparse_A, ans, save_path, left_range, right_range, steps, dim, verbose = verbose)
     #print(f'End embedding.')
-    return coord,ordered_st_coord,sparse_A,ans
+    return coord, max_shape, ordered_st_coord,sparse_A,ans
 
 
 # @timeit

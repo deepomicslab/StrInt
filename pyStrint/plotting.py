@@ -208,63 +208,158 @@ def sc_subtype(adata,color_map = None,tp_key = 'celltype', target_tp = None, siz
 
 
 
-def boxplot(adata, metric = '', palette_dict = None, sub_idx = None,
-                 x = 'method', y = 'pair_num', hue='method',figsize = (2.4, 3),
-                 ylabel='LRI count', dodge=False,legend = False,
-                 test = 't-test_ind',rotate_x = False,
-                 savefig = False, title = None):
-    '''
-    @ Wang Jingwan 0314
-    test method can choose from 
-    't-test_welch', 't-test_paired', 'Mann-Whitney', 'Mann-Whitney-gt', 
-    'Mann-Whitney-ls', 'Levene', 'Wilcoxon', 'Kruskal', 'Brunner-Munzel'
-    '''
+
+def boxplot(adata, metric='', palette_dict=None, sub_idx=None,
+            x='method', y='pair_num', figsize=(2.4, 3),
+            ylabel='LRI count', dodge=False, 
+            test='t-test_ind', rotate_x=False,
+            savefig=False, title=None):
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import scipy.stats as stats
+    
+    # Get the appropriate dataframe
     if (metric == 'spot_cor') or (metric == 'gene_cor'):
         draw_df = adata.uns[metric]
     elif metric == 'moran':
-        # draw_df = pd.DataFrame(adata.var['I'])
         draw_df = adata.uns[metric]
     else:
         draw_df = adata
     
-    if sub_idx:
+    if sub_idx is not None:
         draw_df = draw_df.loc[sub_idx]
 
-    from statannotations.Annotator import Annotator
-
+    # Create figure
     plt.figure(figsize=figsize)
-    ax = sns.boxplot(x=x, y=y, data=draw_df, hue=hue, 
-                     dodge=dodge, palette=palette_dict,
-                     width=.8)
-    pairs = [tuple(draw_df[x].unique())]
-    annot = Annotator(ax, pairs, x=x, y=y, data=draw_df)
-    annot.configure(test=test, comparisons_correction="BH",correction_format="replace")
-    annot.apply_test()
-    annot.annotate()
+    
+    # Create boxplot with corrected palette usage
+    ax = sns.boxplot(data=draw_df,
+                    x=x,
+                    y=y,
+                    hue=x,  # Set hue to x
+                    dodge=dodge,
+                    palette=palette_dict,
+                    showfliers=False,
+                    width=0.8)
+
+    # Statistical annotation
+    groups = draw_df[x].unique()
+    if len(groups) == 2:
+        group1_data = draw_df[draw_df[x] == groups[0]][y]
+        group2_data = draw_df[draw_df[x] == groups[1]][y]
+        
+        if test == 't-test_ind':
+            stat, pval = stats.ttest_ind(group1_data, group2_data)
+        elif test == 'Mann-Whitney':
+            stat, pval = stats.mannwhitneyu(group1_data, group2_data)
+        elif test == 'Wilcoxon':
+            stat, pval = stats.wilcoxon(group1_data, group2_data)
+        
+        y_max = draw_df[y].max()
+        y_pos = y_max + (y_max * 0.05)
+        
+        if pval < 0.001:
+            sig = '***'
+        elif pval < 0.01:
+            sig = '**'
+        elif pval < 0.05:
+            sig = '*'
+        else:
+            sig = 'ns'
+            
+        plt.plot([0, 0, 1, 1], 
+                [y_pos-(y_max * 0.05), y_pos-(y_max * 0.03), y_pos-(y_max * 0.03), y_pos-(y_max * 0.05)], 
+                color='gray', lw=1)
+        plt.text(0.5, y_pos-(y_max * 0.03), sig, color = 'gray',
+                horizontalalignment='center', fontsize=12)
+
+    # Formatting
     plt.tight_layout()
     plt.xticks(fontsize=14)
     plt.yticks(fontsize=14)
     plt.xlabel('', size=16)
     plt.ylabel(ylabel, size=16)
-    plt.title(title,size = 16)
+    
+    if title:
+        plt.title(title, size=16)
+    
     if rotate_x:
         plt.xticks(rotation=90)
 
-    if legend:
-        # plt.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
-        leg = ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.18), ncol=2,
-                        handletextpad=0.3,columnspacing=0.3,fontsize = 14)
-        leg.get_frame().set_linewidth(0.0)  # Remove legend frame
-    else:
-        plt.legend([],[], frameon=False)
+    # Legend handling
+    # if not legend:
+    plt.legend([], [], frameon=False)
 
+    # Save figure if requested
     if savefig:
         if not isinstance(adata, pd.DataFrame):
             save_path = adata.uns['figpath']
             savefig = f'{save_path}/{metric}_box.pdf'
-            plt.savefig(f'{savefig}', bbox_inches='tight')
+            plt.savefig(savefig, bbox_inches='tight')
         else:
-            plt.savefig(f'{savefig}', bbox_inches='tight')
+            plt.savefig(savefig, bbox_inches='tight')
+    
+    return ax
+
+
+# def boxplot(adata, metric = '', palette_dict = None, sub_idx = None,
+#                  x = 'method', y = 'pair_num', hue='method',figsize = (2.4, 3),
+#                  ylabel='LRI count', dodge=False,legend = False,
+#                  test = 't-test_ind',rotate_x = False,
+#                  savefig = False, title = None):
+#     '''
+#     @ Wang Jingwan 0314
+#     test method can choose from 
+#     't-test_welch', 't-test_paired', 'Mann-Whitney', 'Mann-Whitney-gt', 
+#     'Mann-Whitney-ls', 'Levene', 'Wilcoxon', 'Kruskal', 'Brunner-Munzel'
+#     seaborn==0.11.0
+#     '''
+#     if (metric == 'spot_cor') or (metric == 'gene_cor'):
+#         draw_df = adata.uns[metric]
+#     elif metric == 'moran':
+#         # draw_df = pd.DataFrame(adata.var['I'])
+#         draw_df = adata.uns[metric]
+#     else:
+#         draw_df = adata
+    
+#     if sub_idx:
+#         draw_df = draw_df.loc[sub_idx]
+
+#     from statannotations.Annotator import Annotator
+
+#     plt.figure(figsize=figsize)
+#     ax = sns.boxplot(x=x, y=y, data=draw_df, hue=hue, 
+#                      dodge=dodge, palette=palette_dict,
+#                      width=.8)
+#     pairs = [tuple(draw_df[x].unique())]
+#     annot = Annotator(ax, pairs, x=x, y=y, data=draw_df)
+#     annot.configure(test=test, comparisons_correction="BH",correction_format="replace")
+#     annot.apply_test()
+#     annot.annotate()
+#     plt.tight_layout()
+#     plt.xticks(fontsize=14)
+#     plt.yticks(fontsize=14)
+#     plt.xlabel('', size=16)
+#     plt.ylabel(ylabel, size=16)
+#     plt.title(title,size = 16)
+#     if rotate_x:
+#         plt.xticks(rotation=90)
+
+#     if legend:
+#         # plt.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+#         leg = ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.18), ncol=2,
+#                         handletextpad=0.3,columnspacing=0.3,fontsize = 14)
+#         leg.get_frame().set_linewidth(0.0)  # Remove legend frame
+#     else:
+#         plt.legend([],[], frameon=False)
+
+#     if savefig:
+#         if not isinstance(adata, pd.DataFrame):
+#             save_path = adata.uns['figpath']
+#             savefig = f'{save_path}/{metric}_box.pdf'
+#             plt.savefig(f'{savefig}', bbox_inches='tight')
+#         else:
+#             plt.savefig(f'{savefig}', bbox_inches='tight')
 
 
 def exp_violin(adata, gene=None, tp_key=None, types=None,
