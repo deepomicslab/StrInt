@@ -35,37 +35,125 @@ def load_lr_df(species = 'Human',lr_dir = None):
     return lr_df
 
 
-def make_adata(mat,meta,species,save_path = None, save_adata = False):
-    # mat: exp matrix, should be cells x genes
-    # index should be strictly set as strings
-    meta.index = meta.index.map(str)
-    mat.index = mat.index.map(str)
+
+def make_adata(mat, meta, species, save_path=None, save_adata=False):
+    """
+    Create AnnData object from expression matrix and metadata
+    
+    Parameters:
+    -----------
+    mat : pd.DataFrame
+        Expression matrix, cells x genes
+    meta : pd.DataFrame
+        Cell metadata
+    species : str
+        Species name, 'Mouse' or 'Human'
+    save_path : str, optional
+        Path to save outputs
+    save_adata : bool, default False
+        Whether to save AnnData object
+        
+    Returns:
+    --------
+    adata : anndata.AnnData
+        Processed AnnData object
+    """
+    
+    # Work on copies to avoid modifying original data
+    meta = meta.copy()
+    mat = mat.copy()
+    
+    # Ensure indices are strings
+    meta.index = meta.index.astype(str)
+    mat.index = mat.index.astype(str)
+    
+    # Align matrix with metadata
     mat = mat.loc[meta.index]
-    adata = anndata.AnnData(mat,dtype=np.float32)
+    
+    # Create AnnData object
+    # adata = anndata.AnnData(X=mat.values, dtype=np.float32)
+    adata = anndata.AnnData(X=mat.values)
     adata.obs = meta
-    adata.var = pd.DataFrame(mat.columns.tolist(), columns=['symbol'])
-    adata.var_names = adata.var['symbol'].copy()
-    #sc.pp.filter_cells(adata, min_genes=200)
-    #sc.pp.filter_genes(adata, min_cells=3)
-    # remove MT genes for spatial mapping (keeping their counts in the object)
-    if species == 'Mouse':
-        adata.var['MT_gene'] = [gene.startswith('mt-') for gene in adata.var['symbol']]
-    if species == 'Human':
-        adata.var['MT_gene'] = [gene.startswith('MT-') for gene in adata.var['symbol']]
-    adata.obsm['MT'] = adata[:, adata.var['MT_gene'].values].X.toarray()
-    adata = adata[:, ~adata.var['MT_gene'].values]
-    if save_path:
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
-        figpath = save_path + '/figures/'
-        if not os.path.exists(figpath):
-            os.makedirs(figpath)
-        adata.uns['figpath'] = figpath
-        adata.uns['save_path'] = save_path
-    if save_adata:
-        adata.write(f'{save_path}/adata.h5ad')
+    adata.obs_names = meta.index
+    
+    # Set gene information
+    adata.var = pd.DataFrame(index=mat.columns)
+    adata.var['symbol'] = mat.columns.tolist()
+    adata.var_names = adata.var['symbol']
+    
+    # Handle mitochondrial genes
+    mt_prefixes = {'Mouse': 'mt-', 'Human': 'MT-'}
+    if species not in mt_prefixes:
+        raise ValueError(f"Unsupported species: {species}. Supported: {list(mt_prefixes.keys())}")
+    
+    mt_prefix = mt_prefixes[species]
+    adata.var['MT_gene'] = adata.var['symbol'].str.startswith(mt_prefix)
+    
+    # Store MT gene expression and remove from main matrix
+    mt_mask = adata.var['MT_gene'].values
+    if mt_mask.any():
+        adata.obsm['MT'] = adata[:, mt_mask].X.toarray()
+        adata = adata[:, ~mt_mask].copy()
+    
+    # Set species information
     adata.uns['species'] = species
+    
+    # Handle save path
+    if save_path:
+        save_path = os.path.abspath(save_path)
+        os.makedirs(save_path, exist_ok=True)
+        
+        figpath = os.path.join(save_path, 'figures/')
+        os.makedirs(figpath, exist_ok=True)
+        
+        adata.uns['save_path'] = save_path
+        adata.uns['figpath'] = figpath
+        
+        if save_adata:
+            adata_path = os.path.join(save_path, 'adata.h5ad')
+            adata.write(adata_path)
+            print(f"AnnData object saved to: {adata_path}")
+    
+    print(f"AnnData object created:")
+    print(f"  - Cells: {adata.n_obs}")
+    print(f"  - Genes: {adata.n_vars}")
+    print(f"  - Species: {species}")
+    if mt_mask.any():
+        print(f"  - MT genes removed: {mt_mask.sum()}")
+    
     return adata
+
+# def make_adata(mat,meta,species,save_path = None, save_adata = False):
+#     # mat: exp matrix, should be cells x genes
+#     # index should be strictly set as strings
+#     meta.index = meta.index.map(str)
+#     mat.index = mat.index.map(str)
+#     mat = mat.loc[meta.index]
+#     adata = anndata.AnnData(mat,dtype=np.float32)
+#     adata.obs = meta
+#     adata.var = pd.DataFrame(mat.columns.tolist(), columns=['symbol'])
+#     adata.var_names = adata.var['symbol'].copy()
+#     #sc.pp.filter_cells(adata, min_genes=200)
+#     #sc.pp.filter_genes(adata, min_cells=3)
+#     # remove MT genes for spatial mapping (keeping their counts in the object)
+#     if species == 'Mouse':
+#         adata.var['MT_gene'] = [gene.startswith('mt-') for gene in adata.var['symbol']]
+#     if species == 'Human':
+#         adata.var['MT_gene'] = [gene.startswith('MT-') for gene in adata.var['symbol']]
+#     adata.obsm['MT'] = adata[:, adata.var['MT_gene'].values].X.toarray()
+#     adata = adata[:, ~adata.var['MT_gene'].values]
+#     if save_path:
+#         if not os.path.exists(save_path):
+#             os.makedirs(save_path)
+#         figpath = save_path + '/figures/'
+#         if not os.path.exists(figpath):
+#             os.makedirs(figpath)
+#         adata.uns['figpath'] = figpath
+#         adata.uns['save_path'] = save_path
+#     if save_adata:
+#         adata.write(f'{save_path}/adata.h5ad')
+#     adata.uns['species'] = species
+#     return adata
 
 
 

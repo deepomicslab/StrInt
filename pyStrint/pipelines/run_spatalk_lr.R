@@ -1,52 +1,64 @@
+
+args <- commandArgs(trailingOnly = FALSE)
+scriptPath <- normalizePath(sub("^--file=", "", args[grep("^--file=", args)]))
+scriptPath <- dirname(scriptPath)
+
 library(SpaTalk)
+
 options(warn = 0)  
+
 # load starmap data
-args = commandArgs(T)
+args = commandArgs(trailingOnly = TRUE)
 st_dir <- args[1]
 st_meta_dir <- args[2]
 sc_coord_dir <- args[3]
 meta_key <- args[4]
 species <- args[5]
 out_f <- args[6]
-out_f = paste0(out_f,"/")
-print(args)
+out_dir = paste0(out_f,"/")
+dir.create(file.path(out_dir), showWarnings = FALSE)
 
+# print the arges
+print(paste('st_dir:', st_dir))
+print(paste('st_meta_dir:', st_meta_dir))
+print(paste('sc_coord_dir:', sc_coord_dir))
+print(paste('meta_key:', meta_key))
+print(paste('species:', species))
+print(paste('out_dir:', out_dir))
+
+DEFAULT_N_CORES <- 4
 if (length(args) > 6){
     n_cores = strtoi(args[7])
 }else{
-    n_cores = 16
+    n_cores = DEFAULT_N_CORES
 }
-print('Using n_cores:',n_cores)
+print(paste('Using n_cores:', n_cores))
 
-# TODO
-args <- commandArgs(trailingOnly = FALSE)
-scriptPath <- normalizePath(sub("^--file=", "", args[grep("^--file=", args)]))
-scriptPath <- dirname(scriptPath)
+
 ##########
-dir.create(file.path(out_f), showWarnings = FALSE)
-print(out_f)
-# print(meta_key)
-if (grepl('csv', st_dir)){
-    st_data = t(read.table(file = st_dir, sep = ',', header = TRUE,row.names = 1))
-} else{
-    st_data = t(read.table(file = st_dir, sep = '\t', header = TRUE,row.names = 1))
+# Helper function to read data with automatic delimiter detection
+read_data <- function(file_path, transpose = FALSE) {
+    if (grepl('\\.csv$', file_path)) {
+        data <- read.table(file = file_path, sep = ',', header = TRUE, row.names = 1)
+    } else {
+        data <- read.table(file = file_path, sep = '\t', header = TRUE, row.names = 1)
+    }
+    
+    if (transpose) {
+        return(t(data))
+    } else {
+        return(data)
+    }
 }
 
-if (grepl('csv', st_meta_dir)){
-    st_meta = read.table(file = st_meta_dir, sep = ',', header = TRUE,row.names = 1)
-} else{
-    st_meta = read.table(file = st_meta_dir, sep = '\t', header = TRUE,row.names = 1)
-}
-
-if (grepl('csv', sc_coord_dir)){
-    sc_coord = read.table(file = sc_coord_dir, sep = ',', header = TRUE,row.names = 1)
-} else{
-    sc_coord = read.table(file = sc_coord_dir, sep = '\t', header = TRUE,row.names = 1)
-}
+# Load data files
+st_data <- read_data(st_dir, transpose = TRUE)
+st_meta <- read_data(st_meta_dir)
+sc_coord <- read_data(sc_coord_dir)
 
 
 if (species == 'Mouse'){
-    if (grepl('spex', sc_coord_dir)){
+    if (grepl('cell_mapping_meta.tsv', sc_coord_dir)){
         sc_coord = sc_coord[c('adj_spex_UMAP1','adj_spex_UMAP2')]
     }else if (grepl('before', sc_coord_dir)){
         sc_coord = sc_coord[c('adj_spex_UMAP1','adj_spex_UMAP2')]
@@ -58,7 +70,7 @@ if (species == 'Mouse'){
 }
 
 if (species == 'Human'){
-    if (grepl('spex', sc_coord_dir)){
+    if (grepl('cell_mapping_meta.tsv', sc_coord_dir)){
         sc_coord = sc_coord[c('adj_spex_UMAP1','adj_spex_UMAP2')]
     }else if (grepl('before', sc_coord_dir)){
         sc_coord = sc_coord[c('adj_spex_UMAP1','adj_spex_UMAP2')]
@@ -69,13 +81,6 @@ if (species == 'Human'){
     }
 }
 
-# if (grepl('mela', sc_coord_dir)){
-#     if (grepl('spex', sc_coord_dir)){
-#         sc_coord = sc_coord[c('adj_spex_UMAP1','adj_spex_UMAP2')]
-#     }else{
-#         sc_coord = sc_coord[c('adj_spex_UMAP1','adj_spex_UMAP2')]
-#     }
-# }
 print('loaded')
 
 if (grepl('Human', species)){
@@ -112,8 +117,10 @@ colnames(st_data) = sc_coord$cell
 colnames(st_data) = gsub("_", "-", colnames(st_data))
 rownames(st_data) = gsub("_", "-", rownames(st_data))
 st_data = as.data.frame(st_data)
+
 # print(head(sc_coord))
 # print(head(st_data))
+
 obj <- createSpaTalk(st_data = as.matrix(st_data),
                      st_meta = sc_coord,
                      species = species,
@@ -139,7 +146,7 @@ for (tp1 in tp_lst) {
                        co_exp_ratio = 0.05, min_pairs = 2)
         print(tp1)
         print(tp2)
-        # write.table(obj@lrpair, paste0(out_f, "/lr_pair_append.csv"), row.names = TRUE, quote = FALSE, append = TRUE, sep = ",", col.names = FALSE)
+        # write.table(obj@lrpair, paste0(out_dir, "/lr_pair_append.csv"), row.names = TRUE, quote = FALSE, append = TRUE, sep = ",", col.names = FALSE)
       }, error = function(e) {
         cat("Error occurred during iteration: tp1:", tp1, "tp2:", tp2, "Error:", conditionMessage(e), "\n")
       })
@@ -149,10 +156,10 @@ for (tp1 in tp_lst) {
 }
 
 ## obj <- dec_cci_all(object = obj, if_doParallel = T, use_n_cores=n_cores, pvalue=0.1, n_neighbor = 20, co_exp_ratio=0.05,min_pairs=2)
-write.csv(obj@lrpair, paste0(out_f,"/lr_pair.csv"), row.names = TRUE,quote = F)
-saveRDS(obj, paste0(out_f,"/spatalk.rds"))
+write.csv(obj@lrpair, paste0(out_dir,"/lr_pair.csv"), row.names = TRUE,quote = F)
+saveRDS(obj, paste0(out_dir,"/spatalk.rds"))
 ############## LR ana ###################
-# obj = readRDS(paste0(out_f,"/spatalk.rds"))
+# obj = readRDS(paste0(out_dir,"/spatalk.rds"))
 
 r_object = obj@cellpair
 df <- data.frame(
@@ -167,5 +174,5 @@ for (name in names(r_object)) {
   receiver <- r_object[[name]]$cell_receiver
   df <- rbind(df, data.frame(Name = rep(name, length(sender)), cell_sender = sender, cell_receiver = receiver, stringsAsFactors = FALSE))
 }
-write.csv(df, paste0(out_f,"/cellpair.csv"), row.names = T,quote = F)
-write.csv(obj@meta$rawmeta, paste0(out_f,"/spatalk_meta.csv"), row.names = T,quote = F)
+write.csv(df, paste0(out_dir,"/cellpair.csv"), row.names = T,quote = F)
+write.csv(obj@meta$rawmeta, paste0(out_dir,"/spatalk_meta.csv"), row.names = T,quote = F)

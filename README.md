@@ -6,21 +6,32 @@ The software implementation of the method in
 
 # Pre-requirements
 * python 3.9.2
-* numpy, pandas==1.5.2
+* numpy==1.22.3, pandas==1.5.2
 * seaborn==0.11.0
-* scipy, scanpy, umap
+* scipy==1.9.3, scanpy==1.9.8
 * smurf-imputation
+
   
 # Installation
-## 1. Conda env
+## 1. Main Package Installation (Python)
 ```shell
 conda create --name strint python=3.9
 conda activate strint
 python -m pip install --user pyStrint
 ```
-## 2. pip
+## 2. Analysis Reproduction (R)
 ```shell
-pip install pyStrint
+conda install -c conda-forge r-base=4.2.0
+```
+```R
+install.packages(pkgs = 'devtools')
+devtools::install_github('linxihui/NNLM')
+devtools::install_github('ZJUFanLab/SpaTalk')
+
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install("clusterProfiler")
+BiocManager::install(c("org.Hs.eg.db", "org.Mm.eg.db"))
 ```
 
 # Input file format

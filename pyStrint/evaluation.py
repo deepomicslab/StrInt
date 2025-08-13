@@ -21,12 +21,23 @@ def load_spatalk(result, pvalue_thred = 0.005, tp_map = None):
 
 
 
-def runSpaTalk(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bin/Rscript',
-               meta_key = 'celltype', tp_key = None, species = 'Human',overwrite = False,
-               st_dir = None, st_meta_dir = None):
+def runSpaTalk(adata, rscript_executable = None,
+               meta_key = 'celltype', tp_key = None, overwrite = False,
+               st_dir = None, st_meta_dir = None, n_cores = 1):
     '''
     This function is to run SpaTalk and add its results on the adata object.
     '''
+    if rscript_executable is None:
+        rscript_executable = adata.uns.get('rscript_path', None)
+        if rscript_executable is None:
+            raise ValueError('Rscript executable not found, please set rscript_executable or adata.uns["rscript_path"]')
+        
+    species = adata.uns['species']
+    print(f'Species is {species}.')
+    if species is None:
+        print('Species is not specified, please specify the species in adata.uns[\'species\']')
+        return
+    
     save_path = adata.uns['save_path']
     out_f = f'{save_path}/spa/'
     if not tp_key:
@@ -36,12 +47,12 @@ def runSpaTalk(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bi
         r_script_file = f'{script_path}/run_spatalk_lr.R'
         # TODO change name to sc_count.tsv and sc_meta.tsv
         if not st_dir:
-            st_dir = f'{save_path}/alter_sc_exp.tsv'
+            st_dir = f'{save_path}/refined_sc_exp.tsv'
 
         if not st_meta_dir:
-            st_meta_dir = f'{save_path}/spexmod_sc_meta.tsv'
+            st_meta_dir = f'{save_path}/cell_mapping_meta.tsv'
 
-        args = [st_dir,st_meta_dir,st_meta_dir,meta_key,species,out_f]
+        args = [st_dir,st_meta_dir,st_meta_dir,meta_key,species,out_f,str(n_cores)]
         subprocess.run([rscript_executable, "--vanilla", r_script_file]+ args)
 
     if not os.path.exists(f'{out_f}/lr_pair.csv'):
@@ -178,13 +189,18 @@ def generate_cci(adata, tp_key = None, return_df = False):
 
 
 
-def runKEGG(adata, rscript_executable = '/apps/software/R/4.2.0-foss-2021b/bin/Rscript', input_fn = None, input_df = None, df_name = None):
+def runKEGG(adata, rscript_executable = None, input_fn = None, input_df = None, df_name = None):
     import subprocess
     save_path = adata.uns['save_path']
     out_f = f'{save_path}/kegg/'
     if not os.path.exists(out_f):
         os.makedirs(out_f)
     species = adata.uns['species']
+    if rscript_executable is None:
+        rscript_executable = adata.uns.get('rscript_path', None)
+        if rscript_executable is None:
+            raise ValueError('Rscript executable not found, please set rscript_executable or adata.uns["rscript_path"]')
+        
     script_path = os.path.dirname(os.path.realpath(__file__)) + '/pipelines/'
     r_script_file = f'{script_path}/kegg.R'
     if input_df is not None:

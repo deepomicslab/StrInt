@@ -229,4 +229,13 @@ def check_decon_sum(weight):
 
 
 
-
+######## Utility functions ########
+def find_executable_in_path(executable_name):
+    """Find the full path of an executable in the system PATH"""
+    path_dirs = os.environ.get('PATH', '').split(':')
+    for path_dir in path_dirs:
+        if path_dir:  # Skip empty paths
+            executable_path = os.path.join(path_dir, executable_name)
+            if os.path.exists(executable_path) and os.access(executable_path, os.X_OK):
+                return executable_path
+    return None

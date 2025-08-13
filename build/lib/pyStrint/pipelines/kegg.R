@@ -1,17 +1,9 @@
 # if (!require("BiocManager", quietly = TRUE))
 #   install.packages("BiocManager")
-
-# BiocManager::install("org.Hs.eg.db")
 # BiocManager::install("clusterProfiler")
-# TODO
-##### TODO this script was performed on 620 cluster #####
+# BiocManager::install(c("org.Hs.eg.db", "org.Mm.eg.db"))
 args <- commandArgs(trailingOnly = TRUE)
-.libPaths('/home/wangjingwan/R/x86_64-pc-linux-gnu-library/4.2')
 suppressPackageStartupMessages(library(clusterProfiler))
-
-# setwd('/data6/wangjingwan/5.Simpute/4.datasets/1.mela/spex/spa')
-# setwd('/data6/wangjingwan/5.Simpute/4.datasets/1.mela/spa/sp_kegg/')
-# setwd('/data6/wangjingwan/5.Simpute/4.datasets/BR_c2l_S1_rep50/spade/')
 
 setwd(args[1])
 if (args[2] == 'Human') {
